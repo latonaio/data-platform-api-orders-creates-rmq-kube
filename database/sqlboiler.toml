@@ -1,0 +1,14 @@
+no-tests = true
+output = "models"
+wipe = true
+
+[mysql]
+dbname = "DataPlatformCommonSettingsMysqlKube"
+host = "XXXXXX"
+port = 30011
+user = "XXXXXX"
+pass = "XXXXXX"
+sslmode = "false"
+
+
+# whitelist = [ "data_platform_business_partner_general_data" ]
