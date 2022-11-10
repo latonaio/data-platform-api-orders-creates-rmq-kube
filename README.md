@@ -13,40 +13,24 @@ data-platform-api-orders-creates-rmq-kube の動作環境は、次の通りで�
 ## 本レポジトリ が 対応する API サービス
 data-platform-api-orders-creates-rmq-kube が対応する APIサービス は、次のものです。
 
-* APIサービス概要説明 URL: https://xxx.xxx.io/api/API_ORDERS_SRV/creates/
-* APIサービス名(=baseURL): API_ORDERS_SRV
+APIサービス URL: https://xxx.xxx.io/api/API_ORDERS_SRV/creates/
 
 ## 本レポジトリ に 含まれる API名
 data-platform-api-orders-creates-rmq-kube には、次の API をコールするためのリソースが含まれています。  
 
-* A_Product（品目マスタ - 一般データ）
-* A_ProductPlant（品目マスタ - プラントデータ）
-* A_ProductPlantMRPArea（品目マスタ - MRPエリアデータ）
-* A_ProductPlantProcurement（品目マスタ - 購買データ）
-* A_ProductWorkScheduling（品目マスタ - 作業計画データ）
-* A_ProductPlantSales（品目マスタ - 販売プラントデータ）
-* A_ProductValuation（品目マスタ - 評価エリアデータ）
-* A_ProductSalesDelivery（品目マスタ - 販売組織データ）
-* A_ProductPlantQualityMgmt（品目マスタ - 品質管理データ）
-* A_ProductSalesTax（品目マスタ - 販売税データ）
-* A_ProductDescription（品目マスタ - テキストデータ）
-* ToProductDesc（品目マスタ - テキストデータ ※To）
+* A_Header（オーダー - ヘッダデータ）
+* A_HeaderPartner（オーダー - ヘッダ取引先データ）
+* A_HeaderPartnerPlant（オーダー - ヘッダ取引先プラントデータ）
+* A_HeaderPartnerContact（オーダー - ヘッダ取引先コンタクトデータ）
+* A_Item（オーダー - 明細データ）
+* A_ItemPartner（オーダー - 明細取引先データ）
+* A_ItemPartnerPlant（オーダー - 明細取引先プラントデータ）
+* A_ItemPricingElement（オーダー - 明細取引先プラントデータ）
+* A_ItemScheduleLine（オーダー - 明細納入日程行データ）
+* A_Address（オーダー - 住所データ）
 
 ## API への 値入力条件 の 初期値
 data-platform-api-orders-creates-rmq-kube において、API への値入力条件の初期値は、入力ファイルレイアウトの種別毎に、次の通りとなっています。  
-
-### SDC レイアウト
-
-* inoutSDC.Product.Product（品目）
-* inoutSDC.Product.Plant.Plant（プラント）
-* inoutSDC.Product.Plant.MRPArea.MRPArea（MRPエリア）
-* inoutSDC.Product.Accounting.ValuationArea（評価エリア）
-* inoutSDC.Product.SalesOrganization.ProductSalesOrg（販売組織）
-* inoutSDC.Product.SalesOrganization.ProductDistributionChnl（流通チャネル）
-* inoutSDC.Product.ProductDescription.Language（言語キー）
-* inoutSDC.Product.ProductDescription.ProductDescription（品目テキスト）
-* inoutSDC.Product.SalesTax.Country（国）
-* inoutSDC.Product.SalesTax.TaxCategory（税カテゴリ）
 
 ## データ連携基盤のAPIの選択的コール
 
@@ -60,7 +44,7 @@ accepter において 下記の例のように、データの種別（＝APIの�
   
 ```
 	"api_schema": "DPFMOrdersCreates",
-	"accepter": ["Header"],
+	"accepter": ["HeaderItem"],
 	"order_id": null,
 	"deleted": false
 ```
