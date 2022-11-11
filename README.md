@@ -44,7 +44,7 @@ accepter において 下記の例のように、データの種別（＝APIの�
   
 ```
 	"api_schema": "DPFMOrdersCreates",
-	"accepter": ["HeaderItem"],
+	"accepter": ["Header"],
 	"order_id": null,
 	"deleted": false
 ```
@@ -66,111 +66,485 @@ accepter における データ種別 の指定に基づいて DPFM_API_Caller �
 caller.go の func() 毎 の 以下の箇所が、指定された API をコールするソースコードです。  
 
 ```
-func (c *DPFMAPICaller) AsyncGetProductMaster(product, plant, mrpArea, valuationArea, productSalesOrg, productDistributionChnl, language, productDescription string, accepter []string) {
-	wg := &sync.WaitGroup{}
-	wg.Add(len(accepter))
+func (c *DPFMAPICaller) AsyncOrderCreates(
+	accepter []string,
+	input *dpfm_api_input_reader.SDC,
+
+	log *logger.Logger,
+) []error {
+	wg := sync.WaitGroup{}
+	mtx := sync.Mutex{}
+	errs := make([]error, 0, 5)
+	exconfAllExist := false
+
+	subFuncFin := make(chan error)
+	exconfFin := make(chan error)
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		var e []error
+		exconfAllExist, e = c.confirmor.Conf(input, log)
+		if len(e) != 0 {
+			mtx.Lock()
+			errs = append(errs, e...)
+			mtx.Unlock()
+			exconfFin <- xerrors.Errorf("exconf error")
+			return
+		}
+		exconfFin <- nil
+	}()
+
 	for _, fn := range accepter {
+		wg.Add(1)
 		switch fn {
-		case "General":
-			func() {
-				c.General(product)
-				wg.Done()
-			}()
-		case "Plant":
-			func() {
-				c.Plant(product, plant)
-				wg.Done()
-			}()
-		case "MRPArea":
-			func() {
-				c.MRPArea(product, plant, mrpArea)
-				wg.Done()
-			}()
-		case "Procurement":
-			func() {
-				c.Procurement(product, plant)
-				wg.Done()
-			}()
-		case "WorkScheduling":
-			func() {
-				c.WorkScheduling(product, plant)
-				wg.Done()
-			}()
-		case "SalesPlant":
-			func() {
-				c.SalesPlant(product, plant)
-				wg.Done()
-			}()
-		case "Accounting":
-			func() {
-				c.Accounting(product, valuationArea)
-				wg.Done()
-			}()
-		case "SalesOrganization":
-			func() {
-				c.SalesOrganization(product, productSalesOrg, productDistributionChnl)
-				wg.Done()
-			}()
-		case "ProductDescByProduct":
-			func() {
-				c.ProductDescByProduct(product, language)
-				wg.Done()
-			}()
-		case "ProductDescByDesc":
-			func() {
-				c.ProductDescByDesc(language, productDescription)
-				wg.Done()
-			}()
-		case "Quality":
-			func() {
-				c.Quality(product, plant)
-				wg.Done()
-			}()
-		case "SalesTax":
-			func() {
-				c.SalesTax(product, country, taxCategory)
-				wg.Done()
-			}()
+		case "Header":
+			go c.headerCreate(&wg, &mtx, subFuncFin, log, errs, input)
+		case "Item":
+			errs = append(errs, xerrors.Errorf("accepter Item is not implement yet"))
 		default:
 			wg.Done()
 		}
 	}
-
-	wg.Wait()
-}
 ```
 
 ## Output  
-本マイクロサービスでは、[golang-logging-library-for-sap](https://github.com/latonaio/golang-logging-library-for-sap) により、以下のようなデータがJSON形式で出力されます。  
-以下の sample.json の例は、品目マスタ の 一般データ が取得された結果の JSON の例です。  
-以下の項目のうち、"Material" ～ "ProductStandardID" は、/DPFM_API_Output_Formatter/type.go 内 の Type General {} による出力結果です。"cursor" ～ "time"は、golang-logging-library による 定型フォーマットの出力結果です。  
+本マイクロサービスでは、[golang-logging-library-for-data-platform](https://github.com/latonaio/golang-logging-library-for-data-platform) により、以下のようなデータがJSON形式で出力されます。  
+以下の sample.json の例は オーダー の ヘッダデータ が取得された結果の JSON の例です。  
+以下の項目のうち、"OrderID" ～ "PlusMinusFlag" は、/DPFM_API_Output_Formatter/type.go 内 の Type Header {} による出力結果です。"cursor" ～ "time"は、golang-logging-library による 定型フォーマットの出力結果です。  
 
 ```
 {
-	"cursor": "/home/ampamman/go/src/data-platform-api-orders-creates-rmq-kube/DPFM_API_Caller/caller.go#L108",
-	"function": "data-platform-api-orders-creates-rmq-kube/DPFM_API_Caller.(*DPFMAPICaller).General",
-	"level": "INFO",
-	"message": [
-		{
-			"Product": "21",
-			"IndustrySector": "M",
-			"ProductType": "FERT",
-			"BaseUnit": "PC",
-			"ValidityStartDate": "2022-01-25T09:00:00+09:00",
-			"ProductGroup": "01",
-			"Division": "",
-			"GrossWeight": "2.000",
-			"WeightUnit": "KG",
-			"SizeOrDimensionText": "",
-			"ProductStandardID": "",
-			"CreationDate": "",
-			"LastChangeDate": "2022-09-08T09:00:00+09:00",
-			"IsMarkedForDeletion": false,
-			"NetWeight": "1.000",
-			"ChangeNumber": "",
-			"to_Description": "http://XXX.XX.XX.XXX:8080/dpfm/opu/odata/dpfm/API_PRODUCT_SRV/READS/A_Product('21')/to_Description"
-		}
-	],
-	"time": "2022-01-26T14:51:52.138052513+09:00"
+  "cursor": "/go/src/github.com/latonaio/main.go#L101",
+  "function": "main.callProcess",
+  "level": "INFO",
+  "message": {
+  	"connection_key": "request",
+	"result": true,
+	"redis_key": "abcdefg",
+	"filepath": "/var/lib/aion/Data/rededge_sdc/abcdef.json",
+	"runtime_session_id":"boi9ar543dg91ipdnspi099u231280ab0v8af0ew",
+	"business_partner": 201,
+	"service_label": "ORDERS",
+    "Orders": {
+      "OrderID": 11,
+      "OrderDate": "",
+      "OrderType": "",
+      "Buyer": 101,
+      "Seller": 201,
+      "CreationDate": "",
+      "LastChangeDate": "",
+      "ContractType": "",
+      "ValidityStartDate": "",
+      "ValidityEndDate": "",
+      "InvoiceScheduleStartDate": "",
+      "InvoiceScheduleEndDate": "",
+      "TotalNetAmount": null,
+      "TotalTaxAmount": null,
+      "TotalGrossAmount": null,
+      "OverallDeliveryStatus": "",
+      "TotalBlockStatus": null,
+      "OverallOrdReltdBillgStatus": "",
+      "OverallDocReferenceStatus": "",
+      "TransactionCurrency": "",
+      "PricingDate": "",
+      "PriceDetnExchangeRate": null,
+      "RequestedDeliveryDate": "",
+      "HeaderCompleteDeliveryIsDefined": null,
+      "HeaderBillingBlockReason": null,
+      "DeliveryBlockReason": null,
+      "Incoterms": "CIF",
+      "PaymentTerms": "0001",
+      "PaymentMethod": "T",
+      "ReferenceDocument": null,
+      "ReferenceDocumentItem": null,
+      "BPAccountAssignmentGroup": "01",
+      "AccountingExchangeRate": null,
+      "BillingDocumentDate": "",
+      "IsExportImportDelivery": null,
+      "HeaderText": "",
+      "HeaderPartner": [
+        {
+          "PartnerFunction": "DELIVERTO",
+          "BusinessPartner": 102,
+          "BusinessPartnerFullName": "株式会社ABC虎ノ門店",
+          "BusinessPartnerName": "ABC虎ノ門店",
+          "Organization": "",
+          "Country": "JP",
+          "Language": "JA",
+          "Currency": "JPY",
+          "ExternalDocumentID": "",
+          "AddressID": 200000,
+          "HeaderPartnerContact": null,
+          "HeaderPartnerPlant": [
+            {
+              "Plant": "AB02"
+            }
+          ]
+        },
+        {
+          "PartnerFunction": "BUYER",
+          "BusinessPartner": 101,
+          "BusinessPartnerFullName": "株式会社ABC本社",
+          "BusinessPartnerName": "ABC本社",
+          "Organization": "",
+          "Country": "JP",
+          "Language": "JA",
+          "Currency": "JPY",
+          "ExternalDocumentID": "",
+          "AddressID": 100000,
+          "HeaderPartnerContact": [
+            {
+              "ContactID": null,
+              "ContactPersonName": "",
+              "EmailAddress": "",
+              "PhoneNumber": "",
+              "MobilePhoneNumber": "",
+              "FaxNumber": "",
+              "ContactTag1": "",
+              "ContactTag2": "",
+              "ContactTag3": "",
+              "ContactTag4": ""
+            }
+          ],
+          "HeaderPartnerPlant": [
+            {
+              "Plant": "AB01"
+            }
+          ]
+        },
+        {
+          "PartnerFunction": "SELLER",
+          "BusinessPartner": 201,
+          "BusinessPartnerFullName": "パン販売株式会社",
+          "BusinessPartnerName": "パン販売",
+          "Organization": "",
+          "Country": "JP",
+          "Language": "JA",
+          "Currency": "JPY",
+          "ExternalDocumentID": "",
+          "AddressID": 300000,
+          "HeaderPartnerContact": [
+            {
+              "ContactID": null,
+              "ContactPersonName": "",
+              "EmailAddress": "",
+              "PhoneNumber": "",
+              "MobilePhoneNumber": "",
+              "FaxNumber": "",
+              "ContactTag1": "",
+              "ContactTag2": "",
+              "ContactTag3": "",
+              "ContactTag4": ""
+            }
+          ],
+          "HeaderPartnerPlant": [
+            {
+              "Plant": "TE01"
+            }
+          ]
+        }
+      ],
+      "Address": [
+        {
+          "AddressID": null,
+          "PostalCode": "",
+          "LocalRegion": "",
+          "Country": "",
+          "District": "",
+          "StreetName": "",
+          "CityName": "",
+          "Building": "",
+          "Floor": null,
+          "Room": null
+        }
+      ],
+      "HeaderPDF": [
+        {
+          "DocType": "",
+          "DocVersionID": null,
+          "DocID": "",
+          "DocIssuerBusinessPartner": null,
+          "FileName": ""
+        }
+      ],
+      "Item": [
+        {
+          "OrderItem": 1,
+          "OrderItemCategory": "",
+          "OrderItemText": "RobotA",
+          "Product": "A3750",
+          "ProductStandardID": "CDC",
+          "ProductGroup": "01",
+          "BaseUnit": "PC",
+          "PricingDate": "",
+          "PriceDetnExchangeRate": null,
+          "RequestedDeliveryDate": "",
+          "StockConfirmationPartnerFunction": "",
+          "StockConfirmationBusinessPartner": null,
+          "StockConfirmationPlant": "",
+          "StockConfirmationPlantBatch": "",
+          "StockConfirmationPlantBatchValidityStartDate": "",
+          "StockConfirmationPlantBatchValidityEndDate": "",
+          "ProductIsBatchManagedInStockConfirmationPlant": null,
+          "OrderQuantityInBaseUnit": null,
+          "OrderQuantityInIssuingUnit": null,
+          "OrderQuantityInReceivingUnit": null,
+          "OrderIssuingUnit": "",
+          "OrderReceivingUnit": "",
+          "StockConfirmationPolicy": "",
+          "StockConfirmationStatus": "",
+          "ConfdDelivQtyInOrderQtyUnit": null,
+          "ItemWeightUnit": "G",
+          "ProductGrossWeight": 300.05,
+          "ItemGrossWeight": null,
+          "ProductNetWeight": 300.05,
+          "ItemNetWeight": null,
+          "NetAmount": null,
+          "TaxAmount": null,
+          "GrossAmount": null,
+          "BillingDocumentDate": "",
+          "ProductionPlantPartnerFunction": "",
+          "ProductionPlantBusinessPartner": null,
+          "ProductionPlant": "",
+          "ProductionPlantTimeZone": "",
+          "ProductionPlantStorageLocation": "",
+          "IssuingPlantPartnerFunction": "",
+          "IssuingPlantBusinessPartner": null,
+          "IssuingPlant": "",
+          "IssuingPlantTimeZone": "",
+          "IssuingPlantStorageLocation": "",
+          "ReceivingPlantPartnerFunction": "",
+          "ReceivingPlantBusinessPartner": null,
+          "ReceivingPlant": "",
+          "ReceivingPlantTimeZone": "",
+          "ReceivingPlantStorageLocation": "",
+          "ProductIsBatchManagedInProductionPlant": null,
+          "ProductIsBatchManagedInIssuingPlant": null,
+          "ProductIsBatchManagedInReceivingPlant": null,
+          "BatchMgmtPolicyInProductionPlant": "",
+          "BatchMgmtPolicyInIssuingPlant": "",
+          "BatchMgmtPolicyInReceivingPlant": "",
+          "ProductionPlantBatch": "",
+          "IssuingPlantBatch": "",
+          "ReceivingPlantBatch": "",
+          "ProductionPlantBatchValidityStartDate": "",
+          "ProductionPlantBatchValidityEndDate": "",
+          "IssuingPlantBatchValidityStartDate": "",
+          "IssuingPlantBatchValidityEndDate": "",
+          "ReceivingPlantBatchValidityStartDate": "",
+          "ReceivingPlantBatchValidityEndDate": "",
+          "Incoterms": "",
+          "BPTaxClassification": "1",
+          "ProductTaxClassification": "",
+          "BPAccountAssignmentGroup": "",
+          "ProductAccountAssignmentGroup": "01",
+          "PaymentTerms": "",
+          "PaymentMethod": "",
+          "DocumentRjcnReason": null,
+          "ItemBillingBlockReason": null,
+          "Project": "",
+          "AccountingExchangeRate": null,
+          "ReferenceDocument": null,
+          "ReferenceDocumentItem": null,
+          "ItemCompleteDeliveryIsDefined": null,
+          "ItemDeliveryStatus": "",
+          "IssuingStatus": "",
+          "ReceivingStatus": "",
+          "BillingStatus": "",
+          "TaxCode": "",
+          "TaxRate": null,
+          "CountryOfOrigin": "JPY",
+          "ItemPartner": [
+            {
+              "PartnerFunction": "",
+              "BusinessPartner": null,
+              "ItemPartnerPlant": {
+                "Plant": ""
+              }
+            }
+          ],
+          "ItemPricingElement": [
+            {
+              "PricingProcedureStep": null,
+              "PricingProcedureCounter": null,
+              "ConditionType": "",
+              "PricingDate": "",
+              "ConditionRateValue": null,
+              "ConditionCurrency": "",
+              "ConditionQuantity": null,
+              "ConditionQuantityUnit": "",
+              "ConditionRecord": null,
+              "ConditionSequentialNumber": null,
+              "TaxCode": "",
+              "ConditionAmount": null,
+              "TransactionCurrency": "",
+              "ConditionIsManuallyChanged": null
+            }
+          ],
+          "ItemSchedulingLine": [
+            {
+              "ScheduleLine": null,
+              "Product": "",
+              "StockConfirmationPartnerFunction": "",
+              "StockConfirmationBusinessPartner": null,
+              "StockConfirmationPlant": "",
+              "StockConfirmationPlantBatch": "",
+              "StockConfirmationPlantBatchValidityStartDate": "",
+              "StockConfirmationPlantBatchValidityEndDate": "",
+              "ConfirmedDeliveryDate": "",
+              "RequestedDeliveryDate": "",
+              "OrderQuantityInBaseUnit": null,
+              "ConfdOrderQtyByPDTAvailCheck": null,
+              "DeliveredQtyInOrderQtyUnit": null,
+              "OpenConfdDelivQtyInOrdQtyUnit": null,
+              "DelivBlockReasonForSchedLine": null,
+              "PlusMinusFlag": ""
+            }
+          ]
+        },
+        {
+          "OrderItem": 2,
+          "OrderItemCategory": "",
+          "OrderItemText": "RobotB",
+          "Product": "W999",
+          "ProductStandardID": "CAC",
+          "ProductGroup": "01",
+          "BaseUnit": "PC",
+          "PricingDate": "",
+          "PriceDetnExchangeRate": null,
+          "RequestedDeliveryDate": "",
+          "StockConfirmationPartnerFunction": "",
+          "StockConfirmationBusinessPartner": null,
+          "StockConfirmationPlant": "",
+          "StockConfirmationPlantBatch": "",
+          "StockConfirmationPlantBatchValidityStartDate": "",
+          "StockConfirmationPlantBatchValidityEndDate": "",
+          "ProductIsBatchManagedInStockConfirmationPlant": null,
+          "OrderQuantityInBaseUnit": null,
+          "OrderQuantityInIssuingUnit": null,
+          "OrderQuantityInReceivingUnit": null,
+          "OrderIssuingUnit": "",
+          "OrderReceivingUnit": "",
+          "StockConfirmationPolicy": "",
+          "StockConfirmationStatus": "",
+          "ConfdDelivQtyInOrderQtyUnit": null,
+          "ItemWeightUnit": "G",
+          "ProductGrossWeight": 100.05,
+          "ItemGrossWeight": null,
+          "ProductNetWeight": 100.05,
+          "ItemNetWeight": null,
+          "NetAmount": null,
+          "TaxAmount": null,
+          "GrossAmount": null,
+          "BillingDocumentDate": "",
+          "ProductionPlantPartnerFunction": "",
+          "ProductionPlantBusinessPartner": null,
+          "ProductionPlant": "",
+          "ProductionPlantTimeZone": "",
+          "ProductionPlantStorageLocation": "",
+          "IssuingPlantPartnerFunction": "",
+          "IssuingPlantBusinessPartner": null,
+          "IssuingPlant": "",
+          "IssuingPlantTimeZone": "",
+          "IssuingPlantStorageLocation": "",
+          "ReceivingPlantPartnerFunction": "",
+          "ReceivingPlantBusinessPartner": null,
+          "ReceivingPlant": "",
+          "ReceivingPlantTimeZone": "",
+          "ReceivingPlantStorageLocation": "",
+          "ProductIsBatchManagedInProductionPlant": null,
+          "ProductIsBatchManagedInIssuingPlant": null,
+          "ProductIsBatchManagedInReceivingPlant": null,
+          "BatchMgmtPolicyInProductionPlant": "",
+          "BatchMgmtPolicyInIssuingPlant": "",
+          "BatchMgmtPolicyInReceivingPlant": "",
+          "ProductionPlantBatch": "",
+          "IssuingPlantBatch": "",
+          "ReceivingPlantBatch": "",
+          "ProductionPlantBatchValidityStartDate": "",
+          "ProductionPlantBatchValidityEndDate": "",
+          "IssuingPlantBatchValidityStartDate": "",
+          "IssuingPlantBatchValidityEndDate": "",
+          "ReceivingPlantBatchValidityStartDate": "",
+          "ReceivingPlantBatchValidityEndDate": "",
+          "Incoterms": "",
+          "BPTaxClassification": "1",
+          "ProductTaxClassification": "",
+          "BPAccountAssignmentGroup": "",
+          "ProductAccountAssignmentGroup": "01",
+          "PaymentTerms": "",
+          "PaymentMethod": "",
+          "DocumentRjcnReason": null,
+          "ItemBillingBlockReason": null,
+          "Project": "",
+          "AccountingExchangeRate": null,
+          "ReferenceDocument": null,
+          "ReferenceDocumentItem": null,
+          "ItemCompleteDeliveryIsDefined": null,
+          "ItemDeliveryStatus": "",
+          "IssuingStatus": "",
+          "ReceivingStatus": "",
+          "BillingStatus": "",
+          "TaxCode": "",
+          "TaxRate": null,
+          "CountryOfOrigin": "JPY",
+          "ItemPartner": [
+            {
+              "PartnerFunction": "",
+              "BusinessPartner": null,
+              "ItemPartnerPlant": {
+                "Plant": ""
+              }
+            }
+          ],
+          "ItemPricingElement": [
+            {
+              "PricingProcedureStep": null,
+              "PricingProcedureCounter": null,
+              "ConditionType": "",
+              "PricingDate": "",
+              "ConditionRateValue": null,
+              "ConditionCurrency": "",
+              "ConditionQuantity": null,
+              "ConditionQuantityUnit": "",
+              "ConditionRecord": null,
+              "ConditionSequentialNumber": null,
+              "TaxCode": "",
+              "ConditionAmount": null,
+              "TransactionCurrency": "",
+              "ConditionIsManuallyChanged": null
+            }
+          ],
+          "ItemSchedulingLine": [
+            {
+              "ScheduleLine": null,
+              "Product": "",
+              "StockConfirmationPartnerFunction": "",
+              "StockConfirmationBusinessPartner": null,
+              "StockConfirmationPlant": "",
+              "StockConfirmationPlantBatch": "",
+              "StockConfirmationPlantBatchValidityStartDate": "",
+              "StockConfirmationPlantBatchValidityEndDate": "",
+              "ConfirmedDeliveryDate": "",
+              "RequestedDeliveryDate": "",
+              "OrderQuantityInBaseUnit": null,
+              "ConfdOrderQtyByPDTAvailCheck": null,
+              "DeliveredQtyInOrderQtyUnit": null,
+              "OpenConfdDelivQtyInOrdQtyUnit": null,
+              "DelivBlockReasonForSchedLine": null,
+              "PlusMinusFlag": ""
+            }
+          ]
+        }
+      ]
+    },
+    "api_schema": "DPFMOrdersCreates",
+    "accepter": ["All"],
+    "order_id": null,
+    "deleted": false
+  },
+  "runtime_session_id": "boi9ar543dg91ipdnspi099u231280ab0v8af0ew",
+  "time": "2022-11-08T11:21:23+09:00"
 }
 ```

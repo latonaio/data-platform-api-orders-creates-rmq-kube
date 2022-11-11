@@ -24,7 +24,7 @@ func NewSubFuncComplementer(ctx context.Context, c *config.Conf, rmq *rabbitmq.R
 	}
 }
 
-func (c *SubFuncComplementer) ComplementHeader(data *dpfm_api_input_reader.Input, l *logger.Logger) error {
+func (c *SubFuncComplementer) ComplementHeader(data *dpfm_api_input_reader.SDC, l *logger.Logger) error {
 	res, err := c.rmq.SessionKeepRequest(nil, c.c.RMQ.QueueToSubFunc()["Headers"], data)
 	if err != nil {
 		return err
@@ -38,7 +38,7 @@ func (c *SubFuncComplementer) ComplementHeader(data *dpfm_api_input_reader.Input
 	return err
 }
 
-func (c *SubFuncComplementer) ComplementItem(data *dpfm_api_input_reader.Input, l *logger.Logger) error {
+func (c *SubFuncComplementer) ComplementItem(data *dpfm_api_input_reader.SDC, l *logger.Logger) error {
 	res, err := c.rmq.SessionKeepRequest(nil, c.c.RMQ.QueueToSubFunc()["Items"], data)
 	if err != nil {
 		return err

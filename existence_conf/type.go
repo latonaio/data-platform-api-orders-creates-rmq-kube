@@ -1,4 +1,4 @@
-package existence_check
+package existence_conf
 
 type BusinessPartnerReq struct {
 	ConnectionKey     string          `json:"connection_key"`

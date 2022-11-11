@@ -5,7 +5,7 @@ import (
 	dpfm_api_caller "data-platform-api-orders-creates-rmq-kube/DPFM_API_Caller"
 	dpfm_api_input_reader "data-platform-api-orders-creates-rmq-kube/DPFM_API_Input_Reader"
 	"data-platform-api-orders-creates-rmq-kube/config"
-	"data-platform-api-orders-creates-rmq-kube/existence_check"
+	"data-platform-api-orders-creates-rmq-kube/existence_conf"
 	"data-platform-api-orders-creates-rmq-kube/sub_func_complementer"
 	"encoding/json"
 	"fmt"
@@ -36,9 +36,9 @@ func main() {
 	}
 	defer rmq.Stop()
 
-	checker := existence_check.NewExistenceChecker(ctx, conf, rmq, nil)
+	confirmor := existence_conf.NewExistenceConf(ctx, conf, rmq, nil)
 	complementer := sub_func_complementer.NewSubFuncComplementer(ctx, conf, rmq)
-	caller := dpfm_api_caller.NewDPFMAPICaller(conf, rmq, checker, complementer)
+	caller := dpfm_api_caller.NewDPFMAPICaller(conf, rmq, confirmor, complementer)
 
 	for msg := range iter {
 		start := time.Now()
@@ -66,7 +66,7 @@ func callProcess(rmq *rabbitmq.RabbitmqClient, caller *dpfm_api_caller.DPFMAPICa
 		}
 	}()
 	l.AddHeaderInfo(map[string]interface{}{"runtime_session_id": getSessionID(msg.Data())})
-	var input dpfm_api_input_reader.Input
+	var input dpfm_api_input_reader.SDC
 	err = json.Unmarshal(msg.Raw(), &input)
 	if err != nil {
 		return
@@ -81,13 +81,11 @@ func callProcess(rmq *rabbitmq.RabbitmqClient, caller *dpfm_api_caller.DPFMAPICa
 		}
 		return xerrors.New("cannot created")
 	}
-
-	l.Info(input)
-	rmq.Send(conf.RMQ.QueueToSQL()[0], input)
+	// rmq.Send(conf.RMQ.QueueToSQL()[0], input)
 	return nil
 }
 
-func getAccepter(input *dpfm_api_input_reader.Input) []string {
+func getAccepter(input *dpfm_api_input_reader.SDC) []string {
 	accepter := input.Accepter
 	if len(input.Accepter) == 0 {
 		accepter = []string{"All"}
