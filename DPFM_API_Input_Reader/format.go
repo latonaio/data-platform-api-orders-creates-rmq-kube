@@ -4,6 +4,10 @@ import (
 	"data-platform-api-orders-creates-rmq-kube/DPFM_API_Caller/requests"
 )
 
+func (sdc *SDC) ConvertToBpExistenceConf() {
+
+}
+
 func (sdc *SDC) ConvertToHeader() *requests.Header {
 	data := sdc.Orders
 	return &requests.Header{
@@ -63,3 +67,36 @@ func (sdc *SDC) ConvertToHeaderPartner(num int) *requests.HeaderPartner {
 		AddressID:               data.AddressID,
 	}
 }
+
+func (sdc *SDC) ConvertToHeaderPartnerPlant(hpNum, hppNum int) *requests.HeaderPartnerPlant {
+	dataOrders := sdc.Orders
+	dataHeaderPartner := sdc.Orders.HeaderPartner[hpNum]
+	data := dataHeaderPartner.HeaderPartnerPlant[hppNum]
+	return &requests.HeaderPartnerPlant{
+		OrderID:         dataOrders.OrderID,
+		PartnerFunction: dataHeaderPartner.PartnerFunction,
+		BusinessPartner: dataHeaderPartner.BusinessPartner,
+		Plant:           data.Plant,
+	}
+}
+
+// func (sdc *SDC) ConvertToHeaderPartnerContact(hpNum, hpcNum int) *requests.HeaderPartnerContact {
+// 	dataOrders := sdc.Orders
+// 	dataHeaderPartner := sdc.Orders.HeaderPartner[hpNum]
+// 	data := dataHeaderPartner.HeaderPartnerContact[hpcNum]
+// 	return &requests.HeaderPartnerContact{
+// 		OrderID:           dataOrders.OrderID,
+// 		PartnerFunction:   dataHeaderPartner.PartnerFunction,
+// 		BusinessPartner:   dataHeaderPartner.BusinessPartner,
+// 		ContactID:         data.ContactID,
+// 		ContactPersonName: data.ContactPersonName,
+// 		EmailAddress:      data.EmailAddress,
+// 		PhoneNumber:       data.PhoneNumber,
+// 		MobilePhoneNumber: data.MobilePhoneNumber,
+// 		FaxNumber:         data.FaxNumber,
+// 		ContactTag1:       data.ContactTag1,
+// 		ContactTag2:       data.ContactTag2,
+// 		ContactTag3:       data.ContactTag3,
+// 		ContactTag4:       data.ContactTag4,
+// 	}
+// }

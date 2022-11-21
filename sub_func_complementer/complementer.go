@@ -8,6 +8,7 @@ import (
 
 	"github.com/latonaio/golang-logging-library-for-data-platform/logger"
 	rabbitmq "github.com/latonaio/rabbitmq-golang-client-for-data-platform"
+	"golang.org/x/xerrors"
 )
 
 type SubFuncComplementer struct {
@@ -33,6 +34,9 @@ func (c *SubFuncComplementer) ComplementHeader(data *dpfm_api_input_reader.SDC, 
 	err = json.Unmarshal(res.Raw(), data)
 	if err != nil {
 		return err
+	}
+	if data.SubfuncResult == nil || !*data.SubfuncResult {
+		return xerrors.New(data.SubfuncError)
 	}
 
 	return err

@@ -22,7 +22,7 @@ type Header struct {
 	OverallDocReferenceStatus       string   `json:"OverallDocReferenceStatus"`
 	TransactionCurrency             string   `json:"TransactionCurrency"`
 	PricingDate                     *string  `json:"PricingDate"`
-	PriceDetnExchangeRate           *string  `json:"PriceDetnExchangeRate"`
+	PriceDetnExchangeRate           *float32 `json:"PriceDetnExchangeRate"`
 	RequestedDeliveryDate           *string  `json:"RequestedDeliveryDate"`
 	HeaderCompleteDeliveryIsDefined *bool    `json:"HeaderCompleteDeliveryIsDefined"`
 	HeaderBillingBlockReason        *bool    `json:"HeaderBillingBlockReason"`
@@ -33,7 +33,7 @@ type Header struct {
 	ReferenceDocument               *int     `json:"ReferenceDocument"`
 	ReferenceDocumentItem           *int     `json:"ReferenceDocumentItem"`
 	BPAccountAssignmentGroup        string   `json:"BPAccountAssignmentGroup"`
-	AccountingExchangeRate          *string  `json:"AccountingExchangeRate"`
+	AccountingExchangeRate          *float32 `json:"AccountingExchangeRate"`
 	BillingDocumentDate             *string  `json:"BillingDocumentDate"`
 	IsExportImportDelivery          *bool    `json:"IsExportImportDelivery"`
 	HeaderText                      string   `json:"HeaderText"`

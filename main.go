@@ -6,6 +6,7 @@ import (
 	dpfm_api_input_reader "data-platform-api-orders-creates-rmq-kube/DPFM_API_Input_Reader"
 	"data-platform-api-orders-creates-rmq-kube/config"
 	"data-platform-api-orders-creates-rmq-kube/existence_conf"
+	"data-platform-api-orders-creates-rmq-kube/handlers"
 	"data-platform-api-orders-creates-rmq-kube/sub_func_complementer"
 	"encoding/json"
 	"fmt"
@@ -13,18 +14,12 @@ import (
 
 	"github.com/latonaio/golang-logging-library-for-data-platform/logger"
 	rabbitmq "github.com/latonaio/rabbitmq-golang-client-for-data-platform"
-	"golang.org/x/xerrors"
 )
 
 func main() {
 	ctx := context.Background()
 	l := logger.NewLogger()
 	conf := config.NewConf()
-	// db, err := database.NewMySQL(conf.DB)
-	// if err != nil {
-	// 	l.Error(err)
-	// 	return
-	// }
 	rmq, err := rabbitmq.NewRabbitmqClient(conf.RMQ.URL(), conf.RMQ.QueueFrom(), conf.RMQ.SessionControlQueue(), conf.RMQ.QueueToSQL(), 0)
 	if err != nil {
 		l.Fatal(err.Error())
@@ -36,7 +31,7 @@ func main() {
 	}
 	defer rmq.Stop()
 
-	confirmor := existence_conf.NewExistenceConf(ctx, conf, rmq, nil)
+	confirmor := existence_conf.NewExistenceConf(ctx, conf, rmq)
 	complementer := sub_func_complementer.NewSubFuncComplementer(ctx, conf, rmq)
 	caller := dpfm_api_caller.NewDPFMAPICaller(conf, rmq, confirmor, complementer)
 
@@ -45,7 +40,7 @@ func main() {
 		err = callProcess(rmq, caller, conf, msg)
 		if err != nil {
 			msg.Fail()
-			l.Error(err)
+			handlers.ErrorHandler(err, rmq, conf, l)
 			continue
 		}
 		msg.Success()
@@ -62,6 +57,7 @@ func callProcess(rmq *rabbitmq.RabbitmqClient, caller *dpfm_api_caller.DPFMAPICa
 	defer func() {
 		if e := recover(); e != nil {
 			err = fmt.Errorf("error occurred: %w", e)
+			l.Error(err)
 			return
 		}
 	}()
@@ -69,6 +65,7 @@ func callProcess(rmq *rabbitmq.RabbitmqClient, caller *dpfm_api_caller.DPFMAPICa
 	var input dpfm_api_input_reader.SDC
 	err = json.Unmarshal(msg.Raw(), &input)
 	if err != nil {
+		l.Error(err)
 		return
 	}
 
@@ -79,9 +76,10 @@ func callProcess(rmq *rabbitmq.RabbitmqClient, caller *dpfm_api_caller.DPFMAPICa
 		for _, err := range errs {
 			l.Error(err)
 		}
-		return xerrors.New("cannot created")
+		return errs[0]
 	}
-	// rmq.Send(conf.RMQ.QueueToSQL()[0], input)
+	rmq.Send(conf.RMQ.QueueToResponse(), input)
+
 	return nil
 }
 

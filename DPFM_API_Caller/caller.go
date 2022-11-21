@@ -14,19 +14,13 @@ import (
 	"golang.org/x/xerrors"
 )
 
-// type RMQOutputter interface {
-// 	Send(sendQueue string, payload map[string]interface{}) error
-// }
-
 type DPFMAPICaller struct {
 	ctx  context.Context
 	conf *config.Conf
 	rmq  *rabbitmq.RabbitmqClient
 
-	confirmor    *existence_conf.ExistenceConf
+	configure    *existence_conf.ExistenceConf
 	complementer *sub_func_complementer.SubFuncComplementer
-
-	// outputter RMQOutputter
 }
 
 func NewDPFMAPICaller(
@@ -34,15 +28,13 @@ func NewDPFMAPICaller(
 
 	confirmor *existence_conf.ExistenceConf,
 	complementer *sub_func_complementer.SubFuncComplementer,
-	// outputter RMQOutputter,
 ) *DPFMAPICaller {
 	return &DPFMAPICaller{
 		ctx:          context.Background(),
 		conf:         conf,
 		rmq:          rmq,
-		confirmor:    confirmor,
+		configure:    confirmor,
 		complementer: complementer,
-		// outputter:    outputter,
 	}
 }
 
@@ -66,12 +58,12 @@ func (c *DPFMAPICaller) AsyncOrderCreates(
 	go func() {
 		defer wg.Done()
 		var e []error
-		exconfAllExist, e = c.confirmor.Conf(input, log)
+		exconfAllExist, e = c.configure.Conf(input, log)
 		if len(e) != 0 {
 			mtx.Lock()
 			errs = append(errs, e...)
 			mtx.Unlock()
-			exconfFin <- xerrors.Errorf("exconf error")
+			exconfFin <- xerrors.New("exconf error")
 			return
 		}
 		exconfFin <- nil
@@ -81,10 +73,10 @@ func (c *DPFMAPICaller) AsyncOrderCreates(
 		wg.Add(1)
 		switch fn {
 		case "Header":
-			go c.headerCreate(&wg, &mtx, subFuncFin, log, errs, input)
+			go c.headerCreate(&wg, &mtx, subFuncFin, log, &errs, input)
 		case "Item":
 			// TODO: 実装
-			errs = append(errs, xerrors.Errorf("accepter Item is not implement yet"))
+			errs = append(errs, xerrors.New("accepter Item is not implement yet"))
 		default:
 			wg.Done()
 		}
@@ -100,7 +92,7 @@ func (c *DPFMAPICaller) AsyncOrderCreates(
 			return errs
 		}
 	case <-ticker.C:
-		errs = append(errs, xerrors.Errorf("time out"))
+		errs = append(errs, xerrors.New("time out"))
 		return errs
 	}
 
@@ -117,51 +109,103 @@ func (c *DPFMAPICaller) AsyncOrderCreates(
 		}
 	case <-ticker.C:
 		mtx.Lock()
-		errs = append(errs, xerrors.Errorf("time out"))
+		errs = append(errs, xerrors.New("time out"))
 		return errs
 	}
 
-	log.Info(input)
+	log.JsonParseOut(input)
 	return nil
 }
 
-func (c *DPFMAPICaller) headerCreate(wg *sync.WaitGroup, mtx *sync.Mutex, errFin chan error, log *logger.Logger, errs []error, orders *dpfm_api_input_reader.SDC) {
+func (c *DPFMAPICaller) headerCreate(wg *sync.WaitGroup, mtx *sync.Mutex, errFin chan error, log *logger.Logger, errs *[]error, sdc *dpfm_api_input_reader.SDC) {
+	var err error = nil
 	defer wg.Done()
-	err := c.complementer.ComplementHeader(orders, log)
+	defer func() {
+		errFin <- err
+	}()
+	sessionID := sdc.RuntimeSessionID
+	ctx := context.Background()
+	err = c.complementer.ComplementHeader(sdc, log)
 	if err != nil {
 		mtx.Lock()
-		errs = append(errs, err)
+		*errs = append(*errs, err)
 		mtx.Unlock()
-		errFin <- xerrors.Errorf("complement error")
-	}
-	errFin <- nil
-
-	// headerData, err := c.callToHeader("A_BusinessPartner", businessPartner)
-	// if err != nil {
-	// 	log.Error(err)
-	// 	return
-	// }
-	headerData := orders.Orders
-	err = c.rmq.Send(c.conf.RMQ.QueueToSQL()[0], map[string]interface{}{"message": headerData, "function": "OrdersHeader"})
-
-	// headerData := input
-	// err = c.rmq.Send(c.conf.RMQ.QueueToSQL()[0], headerData)
-	if err != nil {
-		log.Error(err)
 		return
 	}
-	log.Info(map[string]interface{}{"message": headerData, "function": "OrdersHeader"})
+
+	// data_platform_orders_header_dataの更新
+	headerData := sdc.ConvertToHeader()
+	res, err := c.rmq.SessionKeepRequest(ctx, c.conf.RMQ.QueueToSQL()[0], map[string]interface{}{"message": headerData, "function": "OrdersHeader", "runtime_session_id": sessionID})
+	if err != nil {
+		err = xerrors.Errorf("rmq error: %w", err)
+		return
+	}
+	res.Success()
+	if !checkResult(res) {
+		err = xerrors.New("Header Data cannot insert")
+		return
+	}
+
+	// data_platform_orders_header_partner_dataの更新
+	for i := range sdc.Orders.HeaderPartner {
+		headerPartnerData := sdc.ConvertToHeaderPartner(i)
+		res, err = c.rmq.SessionKeepRequest(ctx, c.conf.RMQ.QueueToSQL()[0], map[string]interface{}{"message": headerPartnerData, "function": "OrdersHeaderPartner", "runtime_session_id": sessionID})
+		if err != nil {
+			err = xerrors.Errorf("rmq error: %w", err)
+			return
+		}
+		res.Success()
+	}
+	if !checkResult(res) {
+		err = xerrors.New("Header Partner Data cannot insert")
+		return
+	}
+
+	// data_platform_orders_header_partner_plant_dataの更新
+	for i := range sdc.Orders.HeaderPartner {
+		for j := range sdc.Orders.HeaderPartner[i].HeaderPartnerPlant {
+			headerPartnerPlantData := sdc.ConvertToHeaderPartnerPlant(i, j)
+			res, err = c.rmq.SessionKeepRequest(ctx, c.conf.RMQ.QueueToSQL()[0], map[string]interface{}{"message": headerPartnerPlantData, "function": "OrdersHeaderPartnerPlant", "runtime_session_id": sessionID})
+			if err != nil {
+				err = xerrors.Errorf("rmq error: %w", err)
+				return
+			}
+			res.Success()
+		}
+
+		// // data_platform_orders_header_partner_contact_dataの更新
+		// for i := range sdc.Orders.HeaderPartner {
+		// 	for j := range sdc.Orders.HeaderPartner[i].HeaderPartnerContact {
+		// 		headerPartnerContactData := sdc.ConvertToHeaderPartnerContact(i, j)
+		// 		err = c.rmq.Send(c.conf.RMQ.QueueToSQL()[0], map[string]interface{}{"message": headerPartnerContactData, "function": "OrdersHeaderPartnerContact"})
+		// 		if err != nil {
+		// 			log.Error(err)
+		// 			return
+		// 		}
+		// 	}
+		// }
+	}
+	if !checkResult(res) {
+		err = xerrors.Errorf("Header Partner Plant Data cannot insert")
+		return
+	}
+	return
 }
-
-// func (c *DPFMAPICaller) callToHeader(input *dpfm_api_input_reader.Input, l *logger.Logger) (*dpfm_api_output_formatter.Header, error) {
-
-// 	data, err := dpfm_api_output_formatter.ConvertToHeader(byteArray, l)
-// 	if err != nil {
-// 		return nil, xerrors.Errorf("convert error: %w", err)
-// 	}
-// 	return data, err
-// }
 
 func (c *DPFMAPICaller) itemCreate(wg *sync.WaitGroup, mtx *sync.Mutex, errFin chan error, log *logger.Logger, errs []error, input *dpfm_api_input_reader.SDC) {
 	return
+}
+
+func checkResult(msg rabbitmq.RabbitmqMessage) bool {
+	data := msg.Data()
+	_, ok := data["result"]
+	if !ok {
+		return false
+	}
+	result, ok := data["result"].(string)
+	if !ok {
+		return false
+	}
+	return result == "success"
+
 }

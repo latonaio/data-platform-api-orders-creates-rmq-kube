@@ -1,6 +1,6 @@
 # data-platform-api-orders-creates-rmq-kube
 
-data-platform-api-orders-creates-rmq-kube は、周辺業務システム　を データ連携基盤 と統合することを目的に、API でオーダーデータを取得するマイクロサービスです。  
+data-platform-api-orders-creates-rmq-kube は、周辺業務システム　を データ連携基盤 と統合することを目的に、API でオーダーデータを登録するマイクロサービスです。  
 https://xxx.xxx.io/api/API_ORDERS_SRV/creates/
 
 ## 動作環境

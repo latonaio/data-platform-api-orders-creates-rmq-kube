@@ -23,11 +23,11 @@ spec:
           imagePullPolicy: Always
           env:
             - name: "RMQ_QUEUE_FROM"
-              value: "data-platform-api-orders-creates-queue-from"
+              value: "data-platform-api-orders-creates-queue"
             - name: "RMQ_QUEUE_TO_SQL"
               value: "sql-update-kube"
             - name: "RMQ_QUEUE_TO_EX_CONF"
-              value: "data-platform-api-business-partner-exconf-queue"
+              value: "data-platform-api-business-partner-exconf-queue,data-platform-api-business-partner-exconf-queue,data-platform-api-plant-exconf-queue"
             - name: "RMQ_QUEUE_TO_HEADERS_SUB_FUNC"
               value: "data-platform-api-orders-headers-creates-subfunc-queue"
             - name: "RMQ_QUEUE_TO_ITEMS_SUB_FUNC"

@@ -20,6 +20,7 @@ func newRMQ() *RMQ {
 			"Headers": os.Getenv("RMQ_QUEUE_TO_HEADERS_SUB_FUNC"),
 			"Items":   os.Getenv("RMQ_QUEUE_TO_ITEMS_SUB_FUNC"),
 		},
+		queueToResponse:     os.Getenv("NESTJS_DATA_CONNECTION_REQUEST_CONTROL_MANAGER_CONSUME"),
 		sessionControlQueue: os.Getenv("RMQ_SESSION_CONTROL_QUEUE"),
 	}
 }
@@ -31,10 +32,11 @@ type RMQ struct {
 	port  string
 	vhost string
 
-	queueFrom      string
-	queueToSQL     []string
-	queueToExConf  []string
-	queueToSubFunc map[string]string
+	queueFrom       string
+	queueToSQL      []string
+	queueToExConf   []string
+	queueToSubFunc  map[string]string
+	queueToResponse string
 
 	sessionControlQueue string
 }
@@ -57,6 +59,9 @@ func (c *RMQ) QueueToSubFunc() map[string]string {
 }
 func (c *RMQ) QueueToExConf() []string {
 	return c.queueToExConf
+}
+func (c *RMQ) QueueToResponse() string {
+	return c.queueToResponse
 }
 
 func getEnvStrings(key string) []string {

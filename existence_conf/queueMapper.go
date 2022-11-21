@@ -8,7 +8,8 @@ func NewExconfQueueMapper(c *config.Conf) exconfQueueMapper {
 	m := exconfQueueMapper{}
 	ecQNames := c.RMQ.QueueToExConf()
 	m["Product"] = ecQNames[0%len(ecQNames)]
-	m["BusinessPartner"] = ecQNames[1%len(ecQNames)]
+	m["BusinessPartnerGeneral"] = ecQNames[1%len(ecQNames)]
+	m["PlantGeneral"] = ecQNames[2%len(ecQNames)]
 	return m
 }
 
