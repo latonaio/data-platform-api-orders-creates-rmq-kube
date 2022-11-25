@@ -9,7 +9,7 @@
 	"service_label": "ORDERS",
 	"Orders": {
 		"OrderID": null,
-		"OrderDate": null,
+		"OrderDate": "2022-11-22",
 		"OrderType": "",
 		"Buyer": 101,
 		"Seller": 201,
@@ -400,14 +400,5 @@
 	},
 	"api_schema": "DPFMOrdersCreates",
 	"accepter": ["Header"],
-	"order_id": null,
-	"deleted": false,
-  "sql_update_result": null,
-  "sql_update_error": "",
-  "subfunc_result": null,
-  "subfunc_error": "",
-  "exconf_result": null,
-  "exconf_error": "",
-  "api_processing_result": null,
-  "api_processing_error": ""
+	"deleted": false
 }

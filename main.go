@@ -6,7 +6,6 @@ import (
 	dpfm_api_input_reader "data-platform-api-orders-creates-rmq-kube/DPFM_API_Input_Reader"
 	"data-platform-api-orders-creates-rmq-kube/config"
 	"data-platform-api-orders-creates-rmq-kube/existence_conf"
-	"data-platform-api-orders-creates-rmq-kube/handlers"
 	"data-platform-api-orders-creates-rmq-kube/sub_func_complementer"
 	"encoding/json"
 	"fmt"
@@ -40,7 +39,6 @@ func main() {
 		err = callProcess(rmq, caller, conf, msg)
 		if err != nil {
 			msg.Fail()
-			handlers.ErrorHandler(err, rmq, conf, l)
 			continue
 		}
 		msg.Success()
@@ -63,7 +61,14 @@ func callProcess(rmq *rabbitmq.RabbitmqClient, caller *dpfm_api_caller.DPFMAPICa
 	}()
 	l.AddHeaderInfo(map[string]interface{}{"runtime_session_id": getSessionID(msg.Data())})
 	var input dpfm_api_input_reader.SDC
+	var output sub_func_complementer.SDC
+
 	err = json.Unmarshal(msg.Raw(), &input)
+	if err != nil {
+		l.Error(err)
+		return
+	}
+	err = json.Unmarshal(msg.Raw(), &output)
 	if err != nil {
 		l.Error(err)
 		return
@@ -71,14 +76,19 @@ func callProcess(rmq *rabbitmq.RabbitmqClient, caller *dpfm_api_caller.DPFMAPICa
 
 	accepter := getAccepter(&input)
 
-	errs := caller.AsyncOrderCreates(accepter, &input, l)
+	errs := caller.AsyncOrderCreates(accepter, &input, &output, l)
+
 	if len(errs) != 0 {
 		for _, err := range errs {
 			l.Error(err)
 		}
+		output.APIProcessingResult = getBoolPtr(false)
+		output.APIProcessingError = errs[0].Error()
+		rmq.Send(conf.RMQ.QueueToResponse(), output)
 		return errs[0]
 	}
-	rmq.Send(conf.RMQ.QueueToResponse(), input)
+	output.APIProcessingResult = getBoolPtr(true)
+	rmq.Send(conf.RMQ.QueueToResponse(), output)
 
 	return nil
 }
@@ -95,4 +105,8 @@ func getAccepter(input *dpfm_api_input_reader.SDC) []string {
 		}
 	}
 	return accepter
+}
+
+func getBoolPtr(b bool) *bool {
+	return &b
 }

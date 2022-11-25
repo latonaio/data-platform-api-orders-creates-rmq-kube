@@ -41,7 +41,7 @@ func NewDPFMAPICaller(
 func (c *DPFMAPICaller) AsyncOrderCreates(
 	accepter []string,
 	input *dpfm_api_input_reader.SDC,
-
+	output *sub_func_complementer.SDC,
 	log *logger.Logger,
 	// msg rabbitmq.RabbitmqMessage,
 ) []error {
@@ -58,7 +58,7 @@ func (c *DPFMAPICaller) AsyncOrderCreates(
 	go func() {
 		defer wg.Done()
 		var e []error
-		exconfAllExist, e = c.configure.Conf(input, log)
+		exconfAllExist, e = c.configure.Conf(input, output, log)
 		if len(e) != 0 {
 			mtx.Lock()
 			errs = append(errs, e...)
@@ -73,7 +73,7 @@ func (c *DPFMAPICaller) AsyncOrderCreates(
 		wg.Add(1)
 		switch fn {
 		case "Header":
-			go c.headerCreate(&wg, &mtx, subFuncFin, log, &errs, input)
+			go c.headerCreate(&wg, &mtx, subFuncFin, log, &errs, input, output)
 		case "Item":
 			// TODO: 実装
 			errs = append(errs, xerrors.New("accepter Item is not implement yet"))
@@ -113,11 +113,18 @@ func (c *DPFMAPICaller) AsyncOrderCreates(
 		return errs
 	}
 
-	log.JsonParseOut(input)
 	return nil
 }
 
-func (c *DPFMAPICaller) headerCreate(wg *sync.WaitGroup, mtx *sync.Mutex, errFin chan error, log *logger.Logger, errs *[]error, sdc *dpfm_api_input_reader.SDC) {
+func (c *DPFMAPICaller) headerCreate(
+	wg *sync.WaitGroup,
+	mtx *sync.Mutex,
+	errFin chan error,
+	log *logger.Logger,
+	errs *[]error,
+	sdc *dpfm_api_input_reader.SDC,
+	ssdc *sub_func_complementer.SDC,
+) {
 	var err error = nil
 	defer wg.Done()
 	defer func() {
@@ -125,7 +132,7 @@ func (c *DPFMAPICaller) headerCreate(wg *sync.WaitGroup, mtx *sync.Mutex, errFin
 	}()
 	sessionID := sdc.RuntimeSessionID
 	ctx := context.Background()
-	err = c.complementer.ComplementHeader(sdc, log)
+	err = c.complementer.ComplementHeader(sdc, ssdc, log)
 	if err != nil {
 		mtx.Lock()
 		*errs = append(*errs, err)
@@ -134,7 +141,7 @@ func (c *DPFMAPICaller) headerCreate(wg *sync.WaitGroup, mtx *sync.Mutex, errFin
 	}
 
 	// data_platform_orders_header_dataの更新
-	headerData := sdc.ConvertToHeader()
+	headerData := ssdc.Message.Header
 	res, err := c.rmq.SessionKeepRequest(ctx, c.conf.RMQ.QueueToSQL()[0], map[string]interface{}{"message": headerData, "function": "OrdersHeader", "runtime_session_id": sessionID})
 	if err != nil {
 		err = xerrors.Errorf("rmq error: %w", err)
@@ -142,13 +149,15 @@ func (c *DPFMAPICaller) headerCreate(wg *sync.WaitGroup, mtx *sync.Mutex, errFin
 	}
 	res.Success()
 	if !checkResult(res) {
-		err = xerrors.New("Header Data cannot insert")
+		// err = xerrors.New("Header Data cannot insert")
+		ssdc.SQLUpdateResult = getBoolPtr(false)
+		ssdc.SQLUpdateError = "Header Data cannot insert"
 		return
 	}
 
 	// data_platform_orders_header_partner_dataの更新
-	for i := range sdc.Orders.HeaderPartner {
-		headerPartnerData := sdc.ConvertToHeaderPartner(i)
+	for i := range ssdc.Message.HeaderPartner {
+		headerPartnerData := ssdc.Message.HeaderPartner[i]
 		res, err = c.rmq.SessionKeepRequest(ctx, c.conf.RMQ.QueueToSQL()[0], map[string]interface{}{"message": headerPartnerData, "function": "OrdersHeaderPartner", "runtime_session_id": sessionID})
 		if err != nil {
 			err = xerrors.Errorf("rmq error: %w", err)
@@ -157,38 +166,30 @@ func (c *DPFMAPICaller) headerCreate(wg *sync.WaitGroup, mtx *sync.Mutex, errFin
 		res.Success()
 	}
 	if !checkResult(res) {
-		err = xerrors.New("Header Partner Data cannot insert")
+		// err = xerrors.New("Header Partner Data cannot insert")
+		ssdc.SQLUpdateResult = getBoolPtr(false)
+		ssdc.SQLUpdateError = "Header Partner Data cannot insert"
 		return
 	}
 
 	// data_platform_orders_header_partner_plant_dataの更新
-	for i := range sdc.Orders.HeaderPartner {
-		for j := range sdc.Orders.HeaderPartner[i].HeaderPartnerPlant {
-			headerPartnerPlantData := sdc.ConvertToHeaderPartnerPlant(i, j)
-			res, err = c.rmq.SessionKeepRequest(ctx, c.conf.RMQ.QueueToSQL()[0], map[string]interface{}{"message": headerPartnerPlantData, "function": "OrdersHeaderPartnerPlant", "runtime_session_id": sessionID})
-			if err != nil {
-				err = xerrors.Errorf("rmq error: %w", err)
-				return
-			}
-			res.Success()
+	for i := range ssdc.Message.HeaderPartnerPlant {
+		headerPartnerPlantData := ssdc.Message.HeaderPartnerPlant[i]
+		res, err = c.rmq.SessionKeepRequest(ctx, c.conf.RMQ.QueueToSQL()[0], map[string]interface{}{"message": headerPartnerPlantData, "function": "OrdersHeaderPartnerPlant", "runtime_session_id": sessionID})
+		if err != nil {
+			err = xerrors.Errorf("rmq error: %w", err)
+			return
 		}
-
-		// // data_platform_orders_header_partner_contact_dataの更新
-		// for i := range sdc.Orders.HeaderPartner {
-		// 	for j := range sdc.Orders.HeaderPartner[i].HeaderPartnerContact {
-		// 		headerPartnerContactData := sdc.ConvertToHeaderPartnerContact(i, j)
-		// 		err = c.rmq.Send(c.conf.RMQ.QueueToSQL()[0], map[string]interface{}{"message": headerPartnerContactData, "function": "OrdersHeaderPartnerContact"})
-		// 		if err != nil {
-		// 			log.Error(err)
-		// 			return
-		// 		}
-		// 	}
-		// }
+		res.Success()
 	}
 	if !checkResult(res) {
-		err = xerrors.Errorf("Header Partner Plant Data cannot insert")
+		// err = xerrors.Errorf("Header Partner Plant Data cannot insert")
+		ssdc.SQLUpdateResult = getBoolPtr(false)
+		ssdc.SQLUpdateError = "Header Partner Plant Data cannot insert"
 		return
 	}
+
+	ssdc.SQLUpdateResult = getBoolPtr(true)
 	return
 }
 
@@ -208,4 +209,8 @@ func checkResult(msg rabbitmq.RabbitmqMessage) bool {
 	}
 	return result == "success"
 
+}
+
+func getBoolPtr(b bool) *bool {
+	return &b
 }

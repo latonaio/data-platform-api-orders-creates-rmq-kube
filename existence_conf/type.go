@@ -11,7 +11,6 @@ type BusinessPartnerReq struct {
 	BusinessPartner   BusinessPartner `json:"BusinessPartnerGeneral"`
 	APISchema         string          `json:"api_schema"`
 	Accepter          []string        `json:"accepter"`
-	OrderID           *int            `json:"order_id"`
 	Deleted           bool            `json:"deleted"`
 }
 type BusinessPartner struct {
@@ -29,7 +28,6 @@ type PlantReq struct {
 	Plant             Plant    `json:"PlantGeneral"`
 	APISchema         string   `json:"api_schema"`
 	Accepter          []string `json:"accepter"`
-	OrderID           *int     `json:"order_id"`
 	Deleted           bool     `json:"deleted"`
 }
 
