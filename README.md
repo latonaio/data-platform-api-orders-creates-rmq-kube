@@ -69,8 +69,9 @@ caller.go の func() 毎 の 以下の箇所が、指定された API をコー�
 func (c *DPFMAPICaller) AsyncOrderCreates(
 	accepter []string,
 	input *dpfm_api_input_reader.SDC,
-
+	output *sub_func_complementer.SDC,
 	log *logger.Logger,
+    
 ) []error {
 	wg := sync.WaitGroup{}
 	mtx := sync.Mutex{}
@@ -84,12 +85,12 @@ func (c *DPFMAPICaller) AsyncOrderCreates(
 	go func() {
 		defer wg.Done()
 		var e []error
-		exconfAllExist, e = c.confirmor.Conf(input, log)
+		exconfAllExist, e = c.configure.Conf(input, output, log)
 		if len(e) != 0 {
 			mtx.Lock()
 			errs = append(errs, e...)
 			mtx.Unlock()
-			exconfFin <- xerrors.Errorf("exconf error")
+			exconfFin <- xerrors.New("exconf error")
 			return
 		}
 		exconfFin <- nil
@@ -99,9 +100,9 @@ func (c *DPFMAPICaller) AsyncOrderCreates(
 		wg.Add(1)
 		switch fn {
 		case "Header":
-			go c.headerCreate(&wg, &mtx, subFuncFin, log, errs, input)
+			go c.headerCreate(&wg, &mtx, subFuncFin, log, &errs, input, output)
 		case "Item":
-			errs = append(errs, xerrors.Errorf("accepter Item is not implement yet"))
+			errs = append(errs, xerrors.New("accepter Item is not implement yet"))
 		default:
 			wg.Done()
 		}
@@ -111,450 +112,131 @@ func (c *DPFMAPICaller) AsyncOrderCreates(
 ## Output  
 本マイクロサービスでは、[golang-logging-library-for-data-platform](https://github.com/latonaio/golang-logging-library-for-data-platform) により、以下のようなデータがJSON形式で出力されます。  
 以下の sample.json の例は オーダー の ヘッダデータ が取得された結果の JSON の例です。  
-以下の項目のうち、"OrderID" ～ "PlusMinusFlag" は、/DPFM_API_Output_Formatter/type.go 内 の Type Header {} による出力結果です。"cursor" ～ "time"は、golang-logging-library による 定型フォーマットの出力結果です。  
+以下の項目のうち、"OrderID" ～ "PlusMinusFlag" は、/DPFM_API_Output_Formatter/type.go 内 の Type Header {} による出力結果です。"cursor" ～ "time"は、golang-logging-library-for-data-platform による 定型フォーマットの出力結果です。  
 
 ```
 {
-  "connection_key": "request",
-  "result": true,
-  "redis_key": "abcdefg",
-  "filepath": "/var/lib/aion/Data/rededge_sdc/abcdef.json",
-  "api_status_code": 200,
-  "runtime_session_id": "0982370885af448093c04efc9a08a8eb",
-  "business_partner": 201,
-  "service_label": "ORDERS",
-  "Orders": {
-      "OrderID": 71,
-      "OrderDate": null,
-      "OrderType": "",
-      "Buyer": 101,
-      "Seller": 201,
-      "CreationDate": null,
-      "LastChangeDate": null,
-      "ContractType": "",
-      "ValidityStartDate": null,
-      "ValidityEndDate": null,
-      "InvoiceScheduleStartDate": null,
-      "InvoiceScheduleEndDate": null,
-      "TotalNetAmount": null,
-      "TotalTaxAmount": null,
-      "TotalGrossAmount": null,
-      "OverallDeliveryStatus": "",
-      "TotalBlockStatus": null,
-      "OverallOrdReltdBillgStatus": "",
-      "OverallDocReferenceStatus": "",
-      "TransactionCurrency": "",
-      "PricingDate": null,
-      "PriceDetnExchangeRate": null,
-      "RequestedDeliveryDate": null,
-      "HeaderCompleteDeliveryIsDefined": null,
-      "HeaderBillingBlockReason": null,
-      "DeliveryBlockReason": null,
-      "Incoterms": "CIF",
-      "PaymentTerms": "0001",
-      "PaymentMethod": "T",
-      "ReferenceDocument": null,
-      "ReferenceDocumentItem": null,
-      "BPAccountAssignmentGroup": "01",
-      "AccountingExchangeRate": null,
-      "BillingDocumentDate": null,
-      "IsExportImportDelivery": null,
-      "HeaderText": "",
-      "HeaderPartner": [
-          {
-              "PartnerFunction": "BUYER",
-              "BusinessPartner": 101,
-              "BusinessPartnerFullName": "株式会社ローソン本社",
-              "BusinessPartnerName": "ローソン本社",
-              "Organization": "",
-              "Country": "JP",
-              "Language": "JA",
-              "Currency": "JPY",
-              "ExternalDocumentID": "",
-              "AddressID": 100000,
-              "HeaderPartnerContact": [
-                  {
-                      "OrderID": null,
-                      "PartnerFunction": "",
-                      "BusinessPartner": null,
-                      "ContactID": null,
-                      "ContactPersonName": "",
-                      "EmailAddress": "",
-                      "PhoneNumber": "",
-                      "MobilePhoneNumber": "",
-                      "FaxNumber": "",
-                      "ContactTag1": "",
-                      "ContactTag2": "",
-                      "ContactTag3": "",
-                      "ContactTag4": ""
-                  }
-              ],
-              "HeaderPartnerPlant": [
-                  {
-                      "Plant": "AB01"
-                  }
-              ]
-          },
-          {
-              "PartnerFunction": "SELLER",
-              "BusinessPartner": 201,
-              "BusinessPartnerFullName": "山崎製パン販売株式会社",
-              "BusinessPartnerName": "山崎パン販売",
-              "Organization": "",
-              "Country": "JP",
-              "Language": "JA",
-              "Currency": "JPY",
-              "ExternalDocumentID": "",
-              "AddressID": 300000,
-              "HeaderPartnerContact": [
-                  {
-                      "OrderID": null,
-                      "PartnerFunction": "",
-                      "BusinessPartner": null,
-                      "ContactID": null,
-                      "ContactPersonName": "",
-                      "EmailAddress": "",
-                      "PhoneNumber": "",
-                      "MobilePhoneNumber": "",
-                      "FaxNumber": "",
-                      "ContactTag1": "",
-                      "ContactTag2": "",
-                      "ContactTag3": "",
-                      "ContactTag4": ""
-                  }
-              ],
-              "HeaderPartnerPlant": [
-                  {
-                      "Plant": "TE01"
-                  }
-              ]
-          },
-          {
-              "PartnerFunction": "DELIVERTO",
-              "BusinessPartner": 102,
-              "BusinessPartnerFullName": "株式会社ローソン虎ノ門店",
-              "BusinessPartnerName": "ローソン虎ノ門店",
-              "Organization": "",
-              "Country": "JP",
-              "Language": "JA",
-              "Currency": "JPY",
-              "ExternalDocumentID": "",
-              "AddressID": 200000,
-              "HeaderPartnerContact": null,
-              "HeaderPartnerPlant": [
-                  {
-                      "Plant": "AB02"
-                  }
-              ]
-          }
-      ],
-      "Address": [
-          {
-              "AddressID": null,
-              "PostalCode": "",
-              "LocalRegion": "",
-              "Country": "",
-              "District": "",
-              "StreetName": "",
-              "CityName": "",
-              "Building": "",
-              "Floor": null,
-              "Room": null
-          }
-      ],
-      "HeaderPDF": [
-          {
-              "DocType": "",
-              "DocVersionID": null,
-              "DocID": "",
-              "DocIssuerBusinessPartner": null,
-              "FileName": ""
-          }
-      ],
-      "Item": [
-          {
-              "OrderItem": null,
-              "OrderItemCategory": "",
-              "OrderItemText": "",
-              "Product": "A3750",
-              "ProductStandardID": "",
-              "ProductGroup": "",
-              "BaseUnit": "",
-              "PricingDate": null,
-              "PriceDetnExchangeRate": null,
-              "RequestedDeliveryDate": null,
-              "StockConfirmationPartnerFunction": "",
-              "StockConfirmationBusinessPartner": null,
-              "StockConfirmationPlant": "",
-              "StockConfirmationPlantBatch": "",
-              "StockConfirmationPlantBatchValidityStartDate": null,
-              "StockConfirmationPlantBatchValidityEndDate": null,
-              "ProductIsBatchManagedInStockConfirmationPlant": null,
-              "OrderQuantityInBaseUnit": null,
-              "OrderQuantityInIssuingUnit": null,
-              "OrderQuantityInReceivingUnit": null,
-              "OrderIssuingUnit": "",
-              "OrderReceivingUnit": "",
-              "StockConfirmationPolicy": "",
-              "StockConfirmationStatus": "",
-              "ConfdDelivQtyInOrderQtyUnit": null,
-              "ItemWeightUnit": "",
-              "ProductGrossWeight": null,
-              "ItemGrossWeight": null,
-              "ProductNetWeight": null,
-              "ItemNetWeight": null,
-              "NetAmount": null,
-              "TaxAmount": null,
-              "GrossAmount": null,
-              "BillingDocumentDate": null,
-              "ProductionPlantPartnerFunction": "",
-              "ProductionPlantBusinessPartner": null,
-              "ProductionPlant": "",
-              "ProductionPlantTimeZone": "",
-              "ProductionPlantStorageLocation": "",
-              "IssuingPlantPartnerFunction": "",
-              "IssuingPlantBusinessPartner": null,
-              "IssuingPlant": "",
-              "IssuingPlantTimeZone": "",
-              "IssuingPlantStorageLocation": "",
-              "ReceivingPlantPartnerFunction": "",
-              "ReceivingPlantBusinessPartner": null,
-              "ReceivingPlant": "",
-              "ReceivingPlantTimeZone": "",
-              "ReceivingPlantStorageLocation": "",
-              "ProductIsBatchManagedInProductionPlant": null,
-              "ProductIsBatchManagedInIssuingPlant": null,
-              "ProductIsBatchManagedInReceivingPlant": null,
-              "BatchMgmtPolicyInProductionPlant": "",
-              "BatchMgmtPolicyInIssuingPlant": "",
-              "BatchMgmtPolicyInReceivingPlant": "",
-              "ProductionPlantBatch": "",
-              "IssuingPlantBatch": "",
-              "ReceivingPlantBatch": "",
-              "ProductionPlantBatchValidityStartDate": null,
-              "ProductionPlantBatchValidityEndDate": null,
-              "IssuingPlantBatchValidityStartDate": null,
-              "IssuingPlantBatchValidityEndDate": null,
-              "ReceivingPlantBatchValidityStartDate": null,
-              "ReceivingPlantBatchValidityEndDate": null,
-              "Incoterms": "",
-              "BPTaxClassification": "",
-              "ProductTaxClassification": "",
-              "BPAccountAssignmentGroup": "",
-              "ProductAccountAssignmentGroup": "",
-              "PaymentTerms": "",
-              "PaymentMethod": "",
-              "DocumentRjcnReason": null,
-              "ItemBillingBlockReason": null,
-              "Project": "",
-              "AccountingExchangeRate": null,
-              "ReferenceDocument": null,
-              "ReferenceDocumentItem": null,
-              "ItemCompleteDeliveryIsDefined": null,
-              "ItemDeliveryStatus": "",
-              "IssuingStatus": "",
-              "ReceivingStatus": "",
-              "BillingStatus": "",
-              "TaxCode": "",
-              "TaxRate": null,
-              "CountryOfOrigin": "",
-              "ItemPartner": [
-                  {
-                      "PartnerFunction": "",
-                      "BusinessPartner": null,
-                      "ItemPartnerPlant": {
-                          "Plant": ""
-                      }
-                  }
-              ],
-              "ItemPricingElement": [
-                  {
-                      "PricingProcedureStep": null,
-                      "PricingProcedureCounter": null,
-                      "ConditionType": "",
-                      "PricingDate": null,
-                      "ConditionRateValue": null,
-                      "ConditionCurrency": "",
-                      "ConditionQuantity": null,
-                      "ConditionQuantityUnit": "",
-                      "ConditionRecord": null,
-                      "ConditionSequentialNumber": null,
-                      "TaxCode": "",
-                      "ConditionAmount": null,
-                      "TransactionCurrency": "",
-                      "ConditionIsManuallyChanged": null
-                  }
-              ],
-              "ItemSchedulingLine": [
-                  {
-                      "ScheduleLine": null,
-                      "Product": "",
-                      "StockConfirmationPartnerFunction": "",
-                      "StockConfirmationBusinessPartner": null,
-                      "StockConfirmationPlant": "",
-                      "StockConfirmationPlantBatch": "",
-                      "StockConfirmationPlantBatchValidityStartDate": null,
-                      "StockConfirmationPlantBatchValidityEndDate": null,
-                      "ConfirmedDeliveryDate": null,
-                      "RequestedDeliveryDate": null,
-                      "OrderQuantityInBaseUnit": null,
-                      "ConfdOrderQtyByPDTAvailCheck": null,
-                      "DeliveredQtyInOrderQtyUnit": null,
-                      "OpenConfdDelivQtyInOrdQtyUnit": null,
-                      "DelivBlockReasonForSchedLine": null,
-                      "PlusMinusFlag": ""
-                  }
-              ]
-          },
-          {
-              "OrderItem": null,
-              "OrderItemCategory": "",
-              "OrderItemText": "",
-              "Product": "A3750",
-              "ProductStandardID": "",
-              "ProductGroup": "",
-              "BaseUnit": "",
-              "PricingDate": null,
-              "PriceDetnExchangeRate": null,
-              "RequestedDeliveryDate": null,
-              "StockConfirmationPartnerFunction": "",
-              "StockConfirmationBusinessPartner": null,
-              "StockConfirmationPlant": "",
-              "StockConfirmationPlantBatch": "",
-              "StockConfirmationPlantBatchValidityStartDate": null,
-              "StockConfirmationPlantBatchValidityEndDate": null,
-              "ProductIsBatchManagedInStockConfirmationPlant": null,
-              "OrderQuantityInBaseUnit": null,
-              "OrderQuantityInIssuingUnit": null,
-              "OrderQuantityInReceivingUnit": null,
-              "OrderIssuingUnit": "",
-              "OrderReceivingUnit": "",
-              "StockConfirmationPolicy": "",
-              "StockConfirmationStatus": "",
-              "ConfdDelivQtyInOrderQtyUnit": null,
-              "ItemWeightUnit": "",
-              "ProductGrossWeight": null,
-              "ItemGrossWeight": null,
-              "ProductNetWeight": null,
-              "ItemNetWeight": null,
-              "NetAmount": null,
-              "TaxAmount": null,
-              "GrossAmount": null,
-              "BillingDocumentDate": null,
-              "ProductionPlantPartnerFunction": "",
-              "ProductionPlantBusinessPartner": null,
-              "ProductionPlant": "",
-              "ProductionPlantTimeZone": "",
-              "ProductionPlantStorageLocation": "",
-              "IssuingPlantPartnerFunction": "",
-              "IssuingPlantBusinessPartner": null,
-              "IssuingPlant": "",
-              "IssuingPlantTimeZone": "",
-              "IssuingPlantStorageLocation": "",
-              "ReceivingPlantPartnerFunction": "",
-              "ReceivingPlantBusinessPartner": null,
-              "ReceivingPlant": "",
-              "ReceivingPlantTimeZone": "",
-              "ReceivingPlantStorageLocation": "",
-              "ProductIsBatchManagedInProductionPlant": null,
-              "ProductIsBatchManagedInIssuingPlant": null,
-              "ProductIsBatchManagedInReceivingPlant": null,
-              "BatchMgmtPolicyInProductionPlant": "",
-              "BatchMgmtPolicyInIssuingPlant": "",
-              "BatchMgmtPolicyInReceivingPlant": "",
-              "ProductionPlantBatch": "",
-              "IssuingPlantBatch": "",
-              "ReceivingPlantBatch": "",
-              "ProductionPlantBatchValidityStartDate": null,
-              "ProductionPlantBatchValidityEndDate": null,
-              "IssuingPlantBatchValidityStartDate": null,
-              "IssuingPlantBatchValidityEndDate": null,
-              "ReceivingPlantBatchValidityStartDate": null,
-              "ReceivingPlantBatchValidityEndDate": null,
-              "Incoterms": "",
-              "BPTaxClassification": "",
-              "ProductTaxClassification": "",
-              "BPAccountAssignmentGroup": "",
-              "ProductAccountAssignmentGroup": "",
-              "PaymentTerms": "",
-              "PaymentMethod": "",
-              "DocumentRjcnReason": null,
-              "ItemBillingBlockReason": null,
-              "Project": "",
-              "AccountingExchangeRate": null,
-              "ReferenceDocument": null,
-              "ReferenceDocumentItem": null,
-              "ItemCompleteDeliveryIsDefined": null,
-              "ItemDeliveryStatus": "",
-              "IssuingStatus": "",
-              "ReceivingStatus": "",
-              "BillingStatus": "",
-              "TaxCode": "",
-              "TaxRate": null,
-              "CountryOfOrigin": "",
-              "ItemPartner": [
-                  {
-                      "PartnerFunction": "",
-                      "BusinessPartner": null,
-                      "ItemPartnerPlant": {
-                          "Plant": ""
-                      }
-                  }
-              ],
-              "ItemPricingElement": [
-                  {
-                      "PricingProcedureStep": null,
-                      "PricingProcedureCounter": null,
-                      "ConditionType": "",
-                      "PricingDate": null,
-                      "ConditionRateValue": null,
-                      "ConditionCurrency": "",
-                      "ConditionQuantity": null,
-                      "ConditionQuantityUnit": "",
-                      "ConditionRecord": null,
-                      "ConditionSequentialNumber": null,
-                      "TaxCode": "",
-                      "ConditionAmount": null,
-                      "TransactionCurrency": "",
-                      "ConditionIsManuallyChanged": null
-                  }
-              ],
-              "ItemSchedulingLine": [
-                  {
-                      "ScheduleLine": null,
-                      "Product": "",
-                      "StockConfirmationPartnerFunction": "",
-                      "StockConfirmationBusinessPartner": null,
-                      "StockConfirmationPlant": "",
-                      "StockConfirmationPlantBatch": "",
-                      "StockConfirmationPlantBatchValidityStartDate": null,
-                      "StockConfirmationPlantBatchValidityEndDate": null,
-                      "ConfirmedDeliveryDate": null,
-                      "RequestedDeliveryDate": null,
-                      "OrderQuantityInBaseUnit": null,
-                      "ConfdOrderQtyByPDTAvailCheck": null,
-                      "DeliveredQtyInOrderQtyUnit": null,
-                      "OpenConfdDelivQtyInOrdQtyUnit": null,
-                      "DelivBlockReasonForSchedLine": null,
-                      "PlusMinusFlag": ""
-                  }
-              ]
-          }
-      ]
-  },
-  "api_schema": "DPFMOrdersCreates",
-  "accepter": [
-      "Header"
-  ],
-  "order_id": null,
-  "deleted": false,
-  "sql_update_result": null,
-  "sql_update_error": "",
-  "subfunc_result": true,
-  "subfunc_error": "",
-  "exconf_result": null,
-  "exconf_error": "",
-  "api_processing_result": null,
-  "api_processing_error": ""
+    "connection_key": "request",
+    "result": true,
+    "redis_key": "abcdefg",
+    "filepath": "/var/lib/aion/Data/rededge_sdc/abcdef.json",
+    "api_status_code": 200,
+    "runtime_session_id": "f982e32343b24ea39272c534547df545",
+    "business_partner": 201,
+    "service_label": "ORDERS",
+    "message": {
+        "Header": {
+            "OrderID": 114,
+            "OrderDate": "2022-11-22",
+            "OrderType": "",
+            "Buyer": 101,
+            "Seller": 201,
+            "CreationDate": null,
+            "LastChangeDate": null,
+            "ContractType": "",
+            "ValidityStartDate": null,
+            "ValidityEndDate": null,
+            "InvoiceScheduleStartDate": null,
+            "InvoiceScheduleEndDate": null,
+            "TotalNetAmount": null,
+            "TotalTaxAmount": null,
+            "TotalGrossAmount": null,
+            "OverallDeliveryStatus": "",
+            "TotalBlockStatus": null,
+            "OverallOrdReltdBillgStatus": "",
+            "OverallDocReferenceStatus": "",
+            "TransactionCurrency": "",
+            "PricingDate": null,
+            "PriceDetnExchangeRate": null,
+            "RequestedDeliveryDate": null,
+            "HeaderCompleteDeliveryIsDefined": null,
+            "HeaderBillingBlockReason": null,
+            "DeliveryBlockReason": null,
+            "Incoterms": "CIF",
+            "PaymentTerms": "0001",
+            "PaymentMethod": "T",
+            "ReferenceDocument": null,
+            "ReferenceDocumentItem": null,
+            "BPAccountAssignmentGroup": "01",
+            "AccountingExchangeRate": null,
+            "BillingDocumentDate": null,
+            "IsExportImportDelivery": null,
+            "HeaderText": ""
+        },
+        "HeaderPartner": [
+            {
+                "OrderID": 114,
+                "PartnerFunction": "DELIVERTO",
+                "BusinessPartner": 102,
+                "BusinessPartnerFullName": "株式会社ABC虎ノ門店",
+                "BusinessPartnerName": "ABC虎ノ門店",
+                "Organization": "",
+                "Country": "JP",
+                "Language": "JA",
+                "Currency": "JPY",
+                "ExternalDocumentID": "",
+                "AddressID": 200000
+            },
+            {
+                "OrderID": 114,
+                "PartnerFunction": "BUYER",
+                "BusinessPartner": 101,
+                "BusinessPartnerFullName": "株式会社ABC本社",
+                "BusinessPartnerName": "ABC本社",
+                "Organization": "",
+                "Country": "JP",
+                "Language": "JA",
+                "Currency": "JPY",
+                "ExternalDocumentID": "",
+                "AddressID": 100000
+            },
+            {
+                "OrderID": 114,
+                "PartnerFunction": "SELLER",
+                "BusinessPartner": 201,
+                "BusinessPartnerFullName": "パン販売株式会社",
+                "BusinessPartnerName": "パン販売",
+                "Organization": "",
+                "Country": "JP",
+                "Language": "JA",
+                "Currency": "JPY",
+                "ExternalDocumentID": "",
+                "AddressID": 300000
+            }
+        ],
+        "HeaderPartnerPlant": [
+            {
+                "OrderID": 114,
+                "PartnerFunction": "BUYER",
+                "BusinessPartner": 101,
+                "Plant": "AB01"
+            },
+            {
+                "OrderID": 114,
+                "PartnerFunction": "DELIVERTO",
+                "BusinessPartner": 102,
+                "Plant": "AB02"
+            },
+            {
+                "OrderID": 114,
+                "PartnerFunction": "SELLER",
+                "BusinessPartner": 201,
+                "Plant": "TE01"
+            }
+        ]
+    },
+    "api_schema": "DPFMOrdersCreates",
+    "accepter": [
+        "Header"
+    ],
+    "deleted": false,
+    "sql_update_result": true,
+    "sql_update_error": "",
+    "subfunc_result": true,
+    "subfunc_error": "",
+    "exconf_result": true,
+    "exconf_error": "",
+    "api_processing_result": true,
+    "api_processing_error": ""
 }
 ```
