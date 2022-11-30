@@ -399,6 +399,6 @@
 		]
 	},
 	"api_schema": "DPFMOrdersCreates",
-	"accepter": ["Header"],
+	"accepter": ["All"],
 	"deleted": false
 }

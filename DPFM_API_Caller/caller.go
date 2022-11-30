@@ -75,8 +75,7 @@ func (c *DPFMAPICaller) AsyncOrderCreates(
 		case "Header":
 			go c.headerCreate(&wg, &mtx, subFuncFin, log, &errs, input, output)
 		case "Item":
-			// TODO: 実装
-			errs = append(errs, xerrors.New("accepter Item is not implement yet"))
+			go c.itemCreate(&wg, &mtx, subFuncFin, log, &errs, input, output)
 		default:
 			wg.Done()
 		}
@@ -134,9 +133,10 @@ func (c *DPFMAPICaller) headerCreate(
 	ctx := context.Background()
 	err = c.complementer.ComplementHeader(sdc, ssdc, log)
 	if err != nil {
-		mtx.Lock()
-		*errs = append(*errs, err)
-		mtx.Unlock()
+		err = nil
+		// mtx.Lock()
+		// *errs = append(*errs, err)
+		// mtx.Unlock()
 		return
 	}
 
@@ -189,11 +189,55 @@ func (c *DPFMAPICaller) headerCreate(
 		return
 	}
 
-	ssdc.SQLUpdateResult = getBoolPtr(true)
+	if ssdc.SQLUpdateResult == nil {
+		ssdc.SQLUpdateResult = getBoolPtr(true)
+	}
 	return
 }
 
-func (c *DPFMAPICaller) itemCreate(wg *sync.WaitGroup, mtx *sync.Mutex, errFin chan error, log *logger.Logger, errs []error, input *dpfm_api_input_reader.SDC) {
+func (c *DPFMAPICaller) itemCreate(
+	wg *sync.WaitGroup,
+	mtx *sync.Mutex,
+	errFin chan error,
+	log *logger.Logger,
+	errs *[]error,
+	sdc *dpfm_api_input_reader.SDC,
+	ssdc *sub_func_complementer.SDC,
+) {
+	var err error = nil
+	defer wg.Done()
+	defer func() {
+		errFin <- err
+	}()
+	sessionID := sdc.RuntimeSessionID
+	ctx := context.Background()
+	err = c.complementer.ComplementItem(sdc, ssdc, log)
+	if err != nil {
+		mtx.Lock()
+		*errs = append(*errs, err)
+		mtx.Unlock()
+		return
+	}
+
+	// data_platform_orders_item_dataの更新
+	for _, itemData := range ssdc.Message.Item {
+		res, err := c.rmq.SessionKeepRequest(ctx, c.conf.RMQ.QueueToSQL()[0], map[string]interface{}{"message": itemData, "function": "OrdersItem", "runtime_session_id": sessionID})
+		if err != nil {
+			err = xerrors.Errorf("rmq error: %w", err)
+			return
+		}
+		res.Success()
+		if !checkResult(res) {
+			// err = xerrors.New("Item Data cannot insert")
+			ssdc.SQLUpdateResult = getBoolPtr(false)
+			ssdc.SQLUpdateError = "Item Data cannot insert"
+			return
+		}
+	}
+
+	if ssdc.SQLUpdateResult == nil {
+		ssdc.SQLUpdateResult = getBoolPtr(true)
+	}
 	return
 }
 
