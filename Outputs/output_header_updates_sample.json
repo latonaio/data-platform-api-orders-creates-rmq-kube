@@ -1,0 +1,42 @@
+{
+  "connection_key": "request",
+  "result": true,
+  "redis_key": "abcdefg",
+  "filepath": "/var/lib/aion/Data/rededge_sdc/abcdef.json",
+  "api_status_code": 200,
+  "runtime_session_id": "956253535dac4f7dba8be65ce9ffdd46",
+  "business_partner": 201,
+  "service_label": "ORDERS",
+  "api_type": "updates",
+  "message": {
+      "OrderID": 131,
+      "TotalNetAmount": 1000,
+      "TotalTaxAmount": 100,
+      "TotalGrossAmount": 1100,
+      "TotalBlockStatus": null,
+      "TransactionCurrency": "EUR",
+      "PricingDate": "",
+      "PriceDetnExchangeRate": null,
+      "RequestedDeliveryDate": "",
+      "HeaderCompleteDeliveryIsDefined": null,
+      "HeaderBillingBlockReason": null,
+      "DeliveryBlockReason": null,
+      "Incoterms": "DDU",
+      "PaymentTerms": "0002",
+      "BillingDocumentDate": "",
+      "HeaderText": "更新用テキスト"
+  },
+  "api_schema": "DPFMOrdersCreates",
+  "accepter": [
+      "All"
+  ],
+  "deleted": false,
+  "sql_update_result": true,
+  "sql_update_error": "",
+  "subfunc_result": null,
+  "subfunc_error": "",
+  "exconf_result": true,
+  "exconf_error": "",
+  "api_processing_result": true,
+  "api_processing_error": ""
+}

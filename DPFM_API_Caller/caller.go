@@ -3,6 +3,7 @@ package dpfm_api_caller
 import (
 	"context"
 	dpfm_api_input_reader "data-platform-api-orders-creates-rmq-kube/DPFM_API_Input_Reader"
+	dpfm_api_output_formatter "data-platform-api-orders-creates-rmq-kube/DPFM_API_Output_Formatter"
 	"data-platform-api-orders-creates-rmq-kube/config"
 	"data-platform-api-orders-creates-rmq-kube/existence_conf"
 	"data-platform-api-orders-creates-rmq-kube/sub_func_complementer"
@@ -41,218 +42,185 @@ func NewDPFMAPICaller(
 func (c *DPFMAPICaller) AsyncOrderCreates(
 	accepter []string,
 	input *dpfm_api_input_reader.SDC,
-	output *sub_func_complementer.SDC,
+	output *dpfm_api_output_formatter.SDC,
 	log *logger.Logger,
-	// msg rabbitmq.RabbitmqMessage,
-) []error {
+) (interface{}, []error) {
 	wg := sync.WaitGroup{}
 	mtx := sync.Mutex{}
 	errs := make([]error, 0, 5)
 	exconfAllExist := false
 
-	subFuncFin := make(chan error)
 	exconfFin := make(chan error)
+	subFuncFin := make(chan error)
+
+	outputMsg := &dpfm_api_output_formatter.CreatesMessage{}
 
 	// 他PODへ問い合わせ
 	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		var e []error
-		exconfAllExist, e = c.configure.Conf(input, output, log)
-		if len(e) != 0 {
-			mtx.Lock()
-			errs = append(errs, e...)
-			mtx.Unlock()
-			exconfFin <- xerrors.New("exconf error")
-			return
-		}
-		exconfFin <- nil
-	}()
+	go c.exconfProcess(&mtx, &wg, exconfFin, input, output, &exconfAllExist, &errs, log)
+	if input.APIType == "creates" {
+		go c.subfuncProcess(&mtx, &wg, subFuncFin, input, output, outputMsg, accepter, &errs, log)
+	} else if input.APIType == "updates" {
+		go func() { subFuncFin <- nil }()
+	} else {
+		go func() { subFuncFin <- nil }()
+	}
 
+	// 処理待ち
+	ticker := time.NewTicker(10 * time.Second)
+	if errs = c.finWait(&mtx, exconfFin, ticker); len(errs) != 0 {
+		return outputMsg, errs
+	}
+	if !exconfAllExist {
+		mtx.Lock()
+		return outputMsg, nil
+	}
+	wg.Wait()
+	if errs = c.finWait(&mtx, exconfFin, ticker); len(errs) != 0 {
+		return outputMsg, errs
+	}
+
+	var response interface{}
+	// SQL処理
+	if input.APIType == "creates" {
+		response = c.createSqlProcess(nil, &mtx, input, output, outputMsg, accepter, &errs, log)
+	} else if input.APIType == "updates" {
+		response = c.updateSqlProcess(nil, &mtx, input, output, accepter, &errs, log)
+	}
+
+	return response, nil
+}
+
+func (c *DPFMAPICaller) exconfProcess(
+	mtx *sync.Mutex,
+	wg *sync.WaitGroup,
+	exconfFin chan error,
+	input *dpfm_api_input_reader.SDC,
+	output *dpfm_api_output_formatter.SDC,
+	exconfAllExist *bool,
+	errs *[]error,
+	log *logger.Logger,
+) {
+	defer wg.Done()
+	var e []error
+	*exconfAllExist, e = c.configure.Conf(input, output, log)
+	if len(e) != 0 {
+		mtx.Lock()
+		*errs = append(*errs, e...)
+		mtx.Unlock()
+		exconfFin <- xerrors.New("exconf error")
+		return
+	}
+	exconfFin <- nil
+}
+
+func (c *DPFMAPICaller) subfuncProcess(
+	mtx *sync.Mutex,
+	wg *sync.WaitGroup,
+	subFuncFin chan error,
+	input *dpfm_api_input_reader.SDC,
+	output *dpfm_api_output_formatter.SDC,
+	outputMsg *dpfm_api_output_formatter.CreatesMessage,
+	accepter []string,
+	errs *[]error,
+	log *logger.Logger,
+) {
 	for _, fn := range accepter {
 		wg.Add(1)
 		switch fn {
 		case "Header":
-			go c.headerCreate(&wg, &mtx, subFuncFin, log, &errs, input, output)
+			c.headerCreate(mtx, wg, subFuncFin, input, output, outputMsg, errs, log)
 		case "Item":
-			go c.itemCreate(&wg, &mtx, subFuncFin, log, &errs, input, output)
+			c.itemCreate(mtx, wg, subFuncFin, input, output, outputMsg, errs, log)
 		default:
 			wg.Done()
 		}
 	}
+}
 
-	// 後処理
-	ticker := time.NewTicker(10 * time.Second)
+func (c *DPFMAPICaller) finWait(
+	mtx *sync.Mutex,
+	finChan chan error,
+	ticker *time.Ticker,
+) []error {
+	errs := make([]error, 1)
 	select {
-	case e := <-exconfFin:
+	case e := <-finChan:
 		if e != nil {
 			mtx.Lock()
-			errs = append(errs, e)
+			errs[1] = e
 			return errs
 		}
 	case <-ticker.C:
 		errs = append(errs, xerrors.New("time out"))
 		return errs
 	}
-
-	if !exconfAllExist {
-		mtx.Lock()
-		return nil
-	}
-	select {
-	case e := <-subFuncFin:
-		if e != nil {
-			mtx.Lock()
-			errs = append(errs, e)
-			return errs
-		}
-	case <-ticker.C:
-		mtx.Lock()
-		errs = append(errs, xerrors.New("time out"))
-		return errs
-	}
-
 	return nil
 }
 
 func (c *DPFMAPICaller) headerCreate(
-	wg *sync.WaitGroup,
 	mtx *sync.Mutex,
+	wg *sync.WaitGroup,
 	errFin chan error,
-	log *logger.Logger,
+	input *dpfm_api_input_reader.SDC,
+	output *dpfm_api_output_formatter.SDC,
+	outputMsg *dpfm_api_output_formatter.CreatesMessage,
 	errs *[]error,
-	sdc *dpfm_api_input_reader.SDC,
-	ssdc *sub_func_complementer.SDC,
+	log *logger.Logger,
 ) {
 	var err error = nil
-	defer wg.Done()
 	defer func() {
 		errFin <- err
 	}()
-	sessionID := sdc.RuntimeSessionID
-	ctx := context.Background()
-	err = c.complementer.ComplementHeader(sdc, ssdc, log)
+	defer wg.Done()
+	err = c.complementer.ComplementHeader(input, output, outputMsg, log)
 	if err != nil {
+		log.Error(err)
 		err = nil
 		// mtx.Lock()
 		// *errs = append(*errs, err)
 		// mtx.Unlock()
 		return
 	}
-
-	// data_platform_orders_header_dataの更新
-	headerData := ssdc.Message.Header
-	res, err := c.rmq.SessionKeepRequest(ctx, c.conf.RMQ.QueueToSQL()[0], map[string]interface{}{"message": headerData, "function": "OrdersHeader", "runtime_session_id": sessionID})
-	if err != nil {
-		err = xerrors.Errorf("rmq error: %w", err)
-		return
-	}
-	res.Success()
-	if !checkResult(res) {
-		// err = xerrors.New("Header Data cannot insert")
-		ssdc.SQLUpdateResult = getBoolPtr(false)
-		ssdc.SQLUpdateError = "Header Data cannot insert"
-		return
-	}
-
-	// data_platform_orders_header_partner_dataの更新
-	for i := range ssdc.Message.HeaderPartner {
-		headerPartnerData := ssdc.Message.HeaderPartner[i]
-		res, err = c.rmq.SessionKeepRequest(ctx, c.conf.RMQ.QueueToSQL()[0], map[string]interface{}{"message": headerPartnerData, "function": "OrdersHeaderPartner", "runtime_session_id": sessionID})
-		if err != nil {
-			err = xerrors.Errorf("rmq error: %w", err)
-			return
-		}
-		res.Success()
-	}
-	if !checkResult(res) {
-		// err = xerrors.New("Header Partner Data cannot insert")
-		ssdc.SQLUpdateResult = getBoolPtr(false)
-		ssdc.SQLUpdateError = "Header Partner Data cannot insert"
-		return
-	}
-
-	// data_platform_orders_header_partner_plant_dataの更新
-	for i := range ssdc.Message.HeaderPartnerPlant {
-		headerPartnerPlantData := ssdc.Message.HeaderPartnerPlant[i]
-		res, err = c.rmq.SessionKeepRequest(ctx, c.conf.RMQ.QueueToSQL()[0], map[string]interface{}{"message": headerPartnerPlantData, "function": "OrdersHeaderPartnerPlant", "runtime_session_id": sessionID})
-		if err != nil {
-			err = xerrors.Errorf("rmq error: %w", err)
-			return
-		}
-		res.Success()
-	}
-	if !checkResult(res) {
-		// err = xerrors.Errorf("Header Partner Plant Data cannot insert")
-		ssdc.SQLUpdateResult = getBoolPtr(false)
-		ssdc.SQLUpdateError = "Header Partner Plant Data cannot insert"
-		return
-	}
-
-	if ssdc.SQLUpdateResult == nil {
-		ssdc.SQLUpdateResult = getBoolPtr(true)
-	}
 	return
 }
 
 func (c *DPFMAPICaller) itemCreate(
-	wg *sync.WaitGroup,
 	mtx *sync.Mutex,
+	wg *sync.WaitGroup,
 	errFin chan error,
-	log *logger.Logger,
+	input *dpfm_api_input_reader.SDC,
+	output *dpfm_api_output_formatter.SDC,
+	outputMsg *dpfm_api_output_formatter.CreatesMessage,
 	errs *[]error,
-	sdc *dpfm_api_input_reader.SDC,
-	ssdc *sub_func_complementer.SDC,
+	log *logger.Logger,
 ) {
 	var err error = nil
-	defer wg.Done()
 	defer func() {
 		errFin <- err
 	}()
-	sessionID := sdc.RuntimeSessionID
-	ctx := context.Background()
-	err = c.complementer.ComplementItem(sdc, ssdc, log)
+	defer wg.Done()
+	err = c.complementer.ComplementItem(input, output, outputMsg, log)
 	if err != nil {
 		mtx.Lock()
 		*errs = append(*errs, err)
 		mtx.Unlock()
 		return
 	}
-
-	// data_platform_orders_item_dataの更新
-	for _, itemData := range ssdc.Message.Item {
-		res, err := c.rmq.SessionKeepRequest(ctx, c.conf.RMQ.QueueToSQL()[0], map[string]interface{}{"message": itemData, "function": "OrdersItem", "runtime_session_id": sessionID})
-		if err != nil {
-			err = xerrors.Errorf("rmq error: %w", err)
-			return
-		}
-		res.Success()
-		if !checkResult(res) {
-			// err = xerrors.New("Item Data cannot insert")
-			ssdc.SQLUpdateResult = getBoolPtr(false)
-			ssdc.SQLUpdateError = "Item Data cannot insert"
-			return
-		}
-	}
-
-	if ssdc.SQLUpdateResult == nil {
-		ssdc.SQLUpdateResult = getBoolPtr(true)
-	}
 	return
 }
 
 func checkResult(msg rabbitmq.RabbitmqMessage) bool {
 	data := msg.Data()
-	_, ok := data["result"]
+	d, ok := data["result"]
 	if !ok {
 		return false
 	}
-	result, ok := data["result"].(string)
+	result, ok := d.(string)
 	if !ok {
 		return false
 	}
 	return result == "success"
-
 }
 
 func getBoolPtr(b bool) *bool {

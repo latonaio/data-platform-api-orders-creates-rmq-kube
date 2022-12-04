@@ -3,8 +3,8 @@ package existence_conf
 import (
 	"context"
 	dpfm_api_input_reader "data-platform-api-orders-creates-rmq-kube/DPFM_API_Input_Reader"
+	dpfm_api_output_formatter "data-platform-api-orders-creates-rmq-kube/DPFM_API_Output_Formatter"
 	"data-platform-api-orders-creates-rmq-kube/config"
-	"data-platform-api-orders-creates-rmq-kube/sub_func_complementer"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -33,7 +33,7 @@ func NewExistenceConf(ctx context.Context, c *config.Conf, rmq *rabbitmq.Rabbitm
 }
 
 // Confirm returns existenceMap, allExist, err
-func (c *ExistenceConf) Conf(data *dpfm_api_input_reader.SDC, ssdc *sub_func_complementer.SDC, l *logger.Logger) (allExist bool, errs []error) {
+func (c *ExistenceConf) Conf(data *dpfm_api_input_reader.SDC, ssdc *dpfm_api_output_formatter.SDC, l *logger.Logger) (allExist bool, errs []error) {
 	var res string
 	var resMsg string
 	var err error
@@ -111,7 +111,7 @@ func confKeyExistence(res map[string]interface{}) bool {
 	return false
 }
 
-func (c *ExistenceConf) bpExistenceConf(bpID int, data *dpfm_api_input_reader.SDC, existenceMap *[]bool, mtx *sync.Mutex, log *logger.Logger) (string, error) {
+func (c *ExistenceConf) bpExistenceConf(bpID int, input *dpfm_api_input_reader.SDC, existenceMap *[]bool, mtx *sync.Mutex, log *logger.Logger) (string, error) {
 	var resMsg string
 	key := "BusinessPartnerGeneral"
 	exist := false
@@ -121,7 +121,7 @@ func (c *ExistenceConf) bpExistenceConf(bpID int, data *dpfm_api_input_reader.SD
 		mtx.Unlock()
 
 	}()
-	b, _ := json.Marshal(data)
+	b, _ := json.Marshal(input)
 	req := BusinessPartnerReq{}
 	err := json.Unmarshal(b, &req)
 	if err != nil {
@@ -143,7 +143,7 @@ func (c *ExistenceConf) bpExistenceConf(bpID int, data *dpfm_api_input_reader.SD
 	return resMsg, nil
 }
 
-func (c *ExistenceConf) plantExistenceConf(headerPartners []dpfm_api_input_reader.HeaderPartner, data *dpfm_api_input_reader.SDC, existenceMap *[]bool, mtx *sync.Mutex, log *logger.Logger) (string, error) {
+func (c *ExistenceConf) plantExistenceConf(headerPartners []dpfm_api_input_reader.HeaderPartner, input *dpfm_api_input_reader.SDC, existenceMap *[]bool, mtx *sync.Mutex, log *logger.Logger) (string, error) {
 	var resMsg string
 	key := "PlantGeneral"
 	exist := make([]bool, 0, len(headerPartners))
@@ -159,7 +159,7 @@ func (c *ExistenceConf) plantExistenceConf(headerPartners []dpfm_api_input_reade
 		mtx.Unlock()
 	}()
 
-	b, _ := json.Marshal(data)
+	b, _ := json.Marshal(input)
 	req := PlantReq{}
 	err := json.Unmarshal(b, &req)
 	if err != nil {

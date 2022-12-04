@@ -3,6 +3,7 @@ package sub_func_complementer
 import (
 	"context"
 	dpfm_api_input_reader "data-platform-api-orders-creates-rmq-kube/DPFM_API_Input_Reader"
+	dpfm_api_output_formatter "data-platform-api-orders-creates-rmq-kube/DPFM_API_Output_Formatter"
 	"data-platform-api-orders-creates-rmq-kube/config"
 	"encoding/json"
 
@@ -25,9 +26,9 @@ func NewSubFuncComplementer(ctx context.Context, c *config.Conf, rmq *rabbitmq.R
 	}
 }
 
-func (c *SubFuncComplementer) ComplementHeader(data *dpfm_api_input_reader.SDC, ssdc *SDC, l *logger.Logger) error {
-	s := &SDC{}
-	res, err := c.rmq.SessionKeepRequest(nil, c.c.RMQ.QueueToSubFunc()["Headers"], data)
+func (c *SubFuncComplementer) ComplementHeader(input *dpfm_api_input_reader.SDC, output *dpfm_api_output_formatter.SDC, outputMsg *dpfm_api_output_formatter.CreatesMessage, l *logger.Logger) error {
+	s := &dpfm_api_output_formatter.SDC{}
+	res, err := c.rmq.SessionKeepRequest(nil, c.c.RMQ.QueueToSubFunc()["Headers"], input)
 	if err != nil {
 		return err
 	}
@@ -37,23 +38,29 @@ func (c *SubFuncComplementer) ComplementHeader(data *dpfm_api_input_reader.SDC, 
 	if err != nil {
 		return err
 	}
-	ssdc.Message.Header = s.Message.Header
-	ssdc.Message.HeaderPartner = s.Message.HeaderPartner
-	ssdc.Message.HeaderPartnerPlant = s.Message.HeaderPartnerPlant
+	b, _ := json.Marshal(s.Message)
+	msg := &dpfm_api_output_formatter.CreatesMessage{}
+	err = json.Unmarshal(b, msg)
+	if err != nil {
+		return err
+	}
+	outputMsg.HeaderCreates = msg.HeaderCreates
+	outputMsg.HeaderPartner = msg.HeaderPartner
+	outputMsg.HeaderPartnerPlant = msg.HeaderPartnerPlant
 
-	ssdc.SubfuncResult = getBoolPtr(true)
+	output.SubfuncResult = getBoolPtr(true)
 	if s.SubfuncResult == nil || !*s.SubfuncResult {
-		ssdc.SubfuncResult = getBoolPtr(false)
-		ssdc.SubfuncError = s.SubfuncError
-		return xerrors.New(ssdc.SubfuncError)
+		output.SubfuncResult = getBoolPtr(false)
+		output.SubfuncError = s.SubfuncError
+		return xerrors.New(output.SubfuncError)
 	}
 
 	return err
 }
 
-func (c *SubFuncComplementer) ComplementItem(data *dpfm_api_input_reader.SDC, ssdc *SDC, l *logger.Logger) error {
-	s := &SDC{}
-	res, err := c.rmq.SessionKeepRequest(nil, c.c.RMQ.QueueToSubFunc()["Items"], data)
+func (c *SubFuncComplementer) ComplementItem(input *dpfm_api_input_reader.SDC, output *dpfm_api_output_formatter.SDC, outputMsg *dpfm_api_output_formatter.CreatesMessage, l *logger.Logger) error {
+	s := &dpfm_api_output_formatter.SDC{}
+	res, err := c.rmq.SessionKeepRequest(nil, c.c.RMQ.QueueToSubFunc()["Items"], input)
 	if err != nil {
 		return err
 	}
@@ -63,13 +70,19 @@ func (c *SubFuncComplementer) ComplementItem(data *dpfm_api_input_reader.SDC, ss
 	if err != nil {
 		return err
 	}
-	ssdc.Message.Item = s.Message.Item
+	b, _ := json.Marshal(s.Message)
+	msg := &dpfm_api_output_formatter.CreatesMessage{}
+	err = json.Unmarshal(b, msg)
+	if err != nil {
+		return err
+	}
+	outputMsg.Item = msg.Item
 
-	ssdc.SubfuncResult = getBoolPtr(true)
+	output.SubfuncResult = getBoolPtr(true)
 	if s.SubfuncResult == nil || !*s.SubfuncResult {
-		ssdc.SubfuncResult = getBoolPtr(false)
-		ssdc.SubfuncError = s.SubfuncError
-		return xerrors.New(ssdc.SubfuncError)
+		output.SubfuncResult = getBoolPtr(false)
+		output.SubfuncError = s.SubfuncError
+		return xerrors.New(output.SubfuncError)
 	}
 
 	return err

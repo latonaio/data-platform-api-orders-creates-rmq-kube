@@ -62,6 +62,7 @@ type SDC struct {
 	RuntimeSessionID string   `json:"runtime_session_id"`
 	BusinessPartner  *int     `json:"business_partner"`
 	ServiceLabel     string   `json:"service_label"`
+    APIType          string   `json:"api_type"`
 	Orders           Orders   `json:"Orders"`
 	APISchema        string   `json:"api_schema"`
 	Accepter         []string `json:"accepter"`
