@@ -9,7 +9,7 @@ func (sdc *SDC) ConvertToBpExistenceConf() {
 }
 
 func (sdc *SDC) ConvertToHeader() *requests.Header {
-	data := sdc.Orders
+	data := sdc.Header
 	return &requests.Header{
 		OrderID:                         data.OrderID,
 		OrderDate:                       data.OrderDate,
@@ -51,8 +51,8 @@ func (sdc *SDC) ConvertToHeader() *requests.Header {
 }
 
 func (sdc *SDC) ConvertToHeaderPartner(num int) *requests.HeaderPartner {
-	dataOrders := sdc.Orders
-	data := sdc.Orders.HeaderPartner[num]
+	dataOrders := sdc.Header
+	data := sdc.Header.HeaderPartner[num]
 	return &requests.HeaderPartner{
 		OrderID:                 dataOrders.OrderID,
 		PartnerFunction:         data.PartnerFunction,
@@ -69,8 +69,8 @@ func (sdc *SDC) ConvertToHeaderPartner(num int) *requests.HeaderPartner {
 }
 
 func (sdc *SDC) ConvertToHeaderPartnerPlant(hpNum, hppNum int) *requests.HeaderPartnerPlant {
-	dataOrders := sdc.Orders
-	dataHeaderPartner := sdc.Orders.HeaderPartner[hpNum]
+	dataOrders := sdc.Header
+	dataHeaderPartner := sdc.Header.HeaderPartner[hpNum]
 	data := dataHeaderPartner.HeaderPartnerPlant[hppNum]
 	return &requests.HeaderPartnerPlant{
 		OrderID:         dataOrders.OrderID,

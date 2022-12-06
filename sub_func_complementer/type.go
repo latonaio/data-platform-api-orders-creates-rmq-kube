@@ -1,41 +1,37 @@
-package dpfm_api_output_formatter
+package sub_func_complementer
 
 type SDC struct {
-	ConnectionKey       string      `json:"connection_key"`
-	Result              bool        `json:"result"`
-	RedisKey            string      `json:"redis_key"`
-	Filepath            string      `json:"filepath"`
-	APIStatusCode       int         `json:"api_status_code"`
-	RuntimeSessionID    string      `json:"runtime_session_id"`
-	BusinessPartnerID   *int        `json:"business_partner"`
-	ServiceLabel        string      `json:"service_label"`
-	APIType             string      `json:"api_type"`
-	Message             interface{} `json:"message"`
-	APISchema           string      `json:"api_schema"`
-	Accepter            []string    `json:"accepter"`
-	Deleted             bool        `json:"deleted"`
-	SQLUpdateResult     *bool       `json:"sql_update_result"`
-	SQLUpdateError      string      `json:"sql_update_error"`
-	SubfuncResult       *bool       `json:"subfunc_result"`
-	SubfuncError        string      `json:"subfunc_error"`
-	ExconfResult        *bool       `json:"exconf_result"`
-	ExconfError         string      `json:"exconf_error"`
-	APIProcessingResult *bool       `json:"api_processing_result"`
-	APIProcessingError  string      `json:"api_processing_error"`
+	ConnectionKey       string   `json:"connection_key"`
+	Result              bool     `json:"result"`
+	RedisKey            string   `json:"redis_key"`
+	Filepath            string   `json:"filepath"`
+	APIStatusCode       int      `json:"api_status_code"`
+	RuntimeSessionID    string   `json:"runtime_session_id"`
+	BusinessPartnerID   *int     `json:"business_partner"`
+	ServiceLabel        string   `json:"service_label"`
+	APIType             string   `json:"api_type"`
+	Message             Message  `json:"message"`
+	APISchema           string   `json:"api_schema"`
+	Accepter            []string `json:"accepter"`
+	Deleted             bool     `json:"deleted"`
+	SQLUpdateResult     *bool    `json:"sql_update_result"`
+	SQLUpdateError      string   `json:"sql_update_error"`
+	SubfuncResult       *bool    `json:"subfunc_result"`
+	SubfuncError        string   `json:"subfunc_error"`
+	ExconfResult        *bool    `json:"exconf_result"`
+	ExconfError         string   `json:"exconf_error"`
+	APIProcessingResult *bool    `json:"api_processing_result"`
+	APIProcessingError  string   `json:"api_processing_error"`
 }
 
-type CreatesMessage struct {
-	HeaderCreates      *HeaderCreates       `json:"Header"`
+type Message struct {
+	Header             *Header              `json:"Header"`
 	HeaderPartner      []HeaderPartner      `json:"HeaderPartner"`
 	HeaderPartnerPlant []HeaderPartnerPlant `json:"HeaderPartnerPlant"`
 	Item               []Item               `json:"Item"`
 }
 
-type UpdatesMessage struct {
-	HeaderUpdates *HeaderUpdates `json:"Header"`
-}
-
-type HeaderCreates struct {
+type Header struct {
 	OrderID                         *int     `json:"OrderID"`
 	OrderDate                       *string  `json:"OrderDate"`
 	OrderType                       string   `json:"OrderType"`
@@ -74,40 +70,10 @@ type HeaderCreates struct {
 	HeaderText                      string   `json:"HeaderText"`
 }
 
-type HeaderUpdates struct {
-	OrderID                         *int     `json:"OrderID"`
-	TotalNetAmount                  *float32 `json:"TotalNetAmount"`
-	TotalTaxAmount                  *float32 `json:"TotalTaxAmount"`
-	TotalGrossAmount                *float32 `json:"TotalGrossAmount"`
-	TotalBlockStatus                *bool    `json:"TotalBlockStatus"`
-	TransactionCurrency             string   `json:"TransactionCurrency"`
-	PricingDate                     *string  `json:"PricingDate"`
-	PriceDetnExchangeRate           *string  `json:"PriceDetnExchangeRate"`
-	RequestedDeliveryDate           *string  `json:"RequestedDeliveryDate"`
-	HeaderCompleteDeliveryIsDefined *bool    `json:"HeaderCompleteDeliveryIsDefined"`
-	HeaderBillingBlockReason        *bool    `json:"HeaderBillingBlockReason"`
-	DeliveryBlockReason             *bool    `json:"DeliveryBlockReason"`
-	Incoterms                       string   `json:"Incoterms"`
-	PaymentTerms                    string   `json:"PaymentTerms"`
-	BillingDocumentDate             *string  `json:"BillingDocumentDate"`
-	HeaderText                      string   `json:"HeaderText"`
-}
-
 type HeaderPartner struct {
 	OrderID                 *int   `json:"OrderID"`
 	PartnerFunction         string `json:"PartnerFunction"`
 	BusinessPartner         *int   `json:"BusinessPartner"`
-	BusinessPartnerFullName string `json:"BusinessPartnerFullName"`
-	BusinessPartnerName     string `json:"BusinessPartnerName"`
-	Organization            string `json:"Organization"`
-	Country                 string `json:"Country"`
-	Language                string `json:"Language"`
-	Currency                string `json:"Currency"`
-	ExternalDocumentID      string `json:"ExternalDocumentID"`
-	AddressID               *int   `json:"AddressID"`
-}
-
-type HeaderPartnerUpdates struct {
 	BusinessPartnerFullName string `json:"BusinessPartnerFullName"`
 	BusinessPartnerName     string `json:"BusinessPartnerName"`
 	Organization            string `json:"Organization"`
@@ -134,28 +100,11 @@ type HeaderPartnerContact struct {
 	ContactTag4       string `json:"ContactTag4"`
 }
 
-type HeaderPartnerContactUpdates struct {
-	ContactID         *int   `json:"ContactID"`
-	ContactPersonName string `json:"ContactPersonName"`
-	EmailAddress      string `json:"EmailAddress"`
-	PhoneNumber       string `json:"PhoneNumber"`
-	MobilePhoneNumber string `json:"MobilePhoneNumber"`
-	FaxNumber         string `json:"FaxNumber"`
-	ContactTag1       string `json:"ContactTag1"`
-	ContactTag2       string `json:"ContactTag2"`
-	ContactTag3       string `json:"ContactTag3"`
-	ContactTag4       string `json:"ContactTag4"`
-}
-
 type HeaderPartnerPlant struct {
 	OrderID         *int   `json:"OrderID"`
 	PartnerFunction string `json:"PartnerFunction"`
 	BusinessPartner *int   `json:"BusinessPartner"`
 	Plant           string `json:"Plant"`
-}
-
-type HeaderPartnerPlantUpdates struct {
-	Plant string `json:"Plant"`
 }
 
 type Address struct {
@@ -170,18 +119,6 @@ type Address struct {
 	Building    string `json:"Building"`
 	Floor       int    `json:"Floor"`
 	Room        int    `json:"Room"`
-}
-
-type AddressUpdates struct {
-	PostalCode  string `json:"PostalCode"`
-	LocalRegion string `json:"LocalRegion"`
-	Country     string `json:"Country"`
-	District    string `json:"District"`
-	StreetName  string `json:"StreetName"`
-	CityName    string `json:"CityName"`
-	Building    string `json:"Building"`
-	Floor       *int   `json:"Floor"`
-	Room        *int   `json:"Room"`
 }
 
 type HeaderPDF struct {
@@ -282,31 +219,11 @@ type Item struct {
 	CountryOfOrigin                               *string  `json:"CountryOfOrigin"`
 }
 
-type ItemUpdates struct {
-	OrderItemText                    string  `json:"OrderItemText"`
-	OrderItemTextByBuyer             string  `json:"OrderItemTextByBuyer"`
-	OrderItemTextBySeller            string  `json:"OrderItemTextBySeller"`
-	Product                          string  `json:"Product"`
-	ProductStandardID                string  `json:"ProductStandardID"`
-	ProductGroup                     string  `json:"ProductGroup"`
-	RequestedDeliveryDate            *string `json:"RequestedDeliveryDate"`
-	DeliverFromParty                 *int    `json:"BusinessPartner"`
-	DeliverToParty                   *int    `json:"BusinessPartner"`
-	StockConfirmationPartnerFunction string  `json:"StockConfirmationPartnerFunction"`
-	StockConfirmationBusinessPartner *int    `json:"StockConfirmationBusinessPartner"`
-	ItemBillingBlockReason           *bool   `json:"ItemBillingBlockReason"`
-	ItemDeliveryBlockStatus          *bool   `json:"ItemDeliveryBlockStatus"`
-}
-
 type ItemPartner struct {
 	OrderID         int    `json:"OrderID"`
 	OrderItem       int    `json:"OrderItem"`
 	PartnerFunction string `json:"PartnerFunction"`
 	BusinessPartner int    `json:"BusinessPartner"`
-}
-
-type ItemPartnerUpdates struct {
-	PartnerFunction string `json:"PartnerFunction"`
 }
 
 type ItemPartnerPlant struct {
@@ -315,10 +232,6 @@ type ItemPartnerPlant struct {
 	PartnerFunction string `json:"PartnerFunction"`
 	BusinessPartner int    `json:"BusinessPartner"`
 	Plant           string `json:"Plant"`
-}
-
-type ItemPartnerPlantUpdates struct {
-	Plant string `json:"Plant"`
 }
 
 type ItemPricingElement struct {
@@ -340,12 +253,6 @@ type ItemPricingElement struct {
 	ConditionIsManuallyChanged bool    `json:"ConditionIsManuallyChanged"`
 }
 
-type ItemPricingElementUpdates struct {
-	ConditionRateValue         *float32 `json:"ConditionRateValue"`
-	ConditionAmount            *float32 `json:"ConditionAmount"`
-	ConditionIsManuallyChanged *bool    `json:"ConditionIsManuallyChanged"`
-}
-
 type ItemSchedulingLine struct {
 	OrderID                                      int     `json:"OrderID"`
 	OrderItem                                    int     `json:"OrderItem"`
@@ -365,10 +272,4 @@ type ItemSchedulingLine struct {
 	OpenConfdDelivQtyInOrdQtyUnit                float32 `json:"OpenConfdDelivQtyInOrdQtyUnit"`
 	DelivBlockReasonForSchedLine                 bool    `json:"DelivBlockReasonForSchedLine"`
 	PlusMinusFlag                                string  `json:"PlusMinusFlag"`
-}
-
-type ItemSchedulingLineUpdates struct {
-	RequestedDeliveryDate               *string  `json:"RequestedDeliveryDate"`
-	OpenConfdDelivQtyInOrdQtyUnit       *float32 `json:"OpenConfdDelivQtyInOrdQtyUnit"`
-	ItemScheduleLineDeliveryBlockStatus *bool    `json:"ItemScheduleLineDeliveryBlockStatus"`
 }

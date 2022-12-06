@@ -53,13 +53,13 @@ func (c *DPFMAPICaller) AsyncOrderCreates(
 	exconfFin := make(chan error)
 	subFuncFin := make(chan error)
 
-	outputMsg := &dpfm_api_output_formatter.CreatesMessage{}
+	subfuncSDC := &sub_func_complementer.SDC{}
 
 	// 他PODへ問い合わせ
 	wg.Add(1)
 	go c.exconfProcess(&mtx, &wg, exconfFin, input, output, &exconfAllExist, &errs, log)
 	if input.APIType == "creates" {
-		go c.subfuncProcess(&mtx, &wg, subFuncFin, input, output, outputMsg, accepter, &errs, log)
+		go c.subfuncProcess(&mtx, &wg, subFuncFin, input, output, subfuncSDC, accepter, &errs, log)
 	} else if input.APIType == "updates" {
 		go func() { subFuncFin <- nil }()
 	} else {
@@ -69,21 +69,21 @@ func (c *DPFMAPICaller) AsyncOrderCreates(
 	// 処理待ち
 	ticker := time.NewTicker(10 * time.Second)
 	if errs = c.finWait(&mtx, exconfFin, ticker); len(errs) != 0 {
-		return outputMsg, errs
+		return subfuncSDC, errs
 	}
 	if !exconfAllExist {
 		mtx.Lock()
-		return outputMsg, nil
+		return subfuncSDC, nil
 	}
 	wg.Wait()
-	if errs = c.finWait(&mtx, exconfFin, ticker); len(errs) != 0 {
-		return outputMsg, errs
+	if errs = c.finWait(&mtx, subFuncFin, ticker); len(errs) != 0 {
+		return subfuncSDC, errs
 	}
 
 	var response interface{}
 	// SQL処理
 	if input.APIType == "creates" {
-		response = c.createSqlProcess(nil, &mtx, input, output, outputMsg, accepter, &errs, log)
+		response = c.createSqlProcess(nil, &mtx, input, output, subfuncSDC, accepter, &errs, log)
 	} else if input.APIType == "updates" {
 		response = c.updateSqlProcess(nil, &mtx, input, output, accepter, &errs, log)
 	}
@@ -120,7 +120,7 @@ func (c *DPFMAPICaller) subfuncProcess(
 	subFuncFin chan error,
 	input *dpfm_api_input_reader.SDC,
 	output *dpfm_api_output_formatter.SDC,
-	outputMsg *dpfm_api_output_formatter.CreatesMessage,
+	subfuncSDC *sub_func_complementer.SDC,
 	accepter []string,
 	errs *[]error,
 	log *logger.Logger,
@@ -129,9 +129,9 @@ func (c *DPFMAPICaller) subfuncProcess(
 		wg.Add(1)
 		switch fn {
 		case "Header":
-			c.headerCreate(mtx, wg, subFuncFin, input, output, outputMsg, errs, log)
+			c.headerCreate(mtx, wg, subFuncFin, input, output, subfuncSDC, errs, log)
 		case "Item":
-			c.itemCreate(mtx, wg, subFuncFin, input, output, outputMsg, errs, log)
+			c.itemCreate(mtx, wg, subFuncFin, input, output, subfuncSDC, errs, log)
 		default:
 			wg.Done()
 		}
@@ -164,7 +164,7 @@ func (c *DPFMAPICaller) headerCreate(
 	errFin chan error,
 	input *dpfm_api_input_reader.SDC,
 	output *dpfm_api_output_formatter.SDC,
-	outputMsg *dpfm_api_output_formatter.CreatesMessage,
+	subfuncSDC *sub_func_complementer.SDC,
 	errs *[]error,
 	log *logger.Logger,
 ) {
@@ -173,13 +173,20 @@ func (c *DPFMAPICaller) headerCreate(
 		errFin <- err
 	}()
 	defer wg.Done()
-	err = c.complementer.ComplementHeader(input, output, outputMsg, log)
+	err = c.complementer.ComplementHeader(input, subfuncSDC, log)
 	if err != nil {
 		log.Error(err)
 		err = nil
 		// mtx.Lock()
 		// *errs = append(*errs, err)
 		// mtx.Unlock()
+		return
+	}
+	output.SubfuncResult = getBoolPtr(true)
+	if subfuncSDC.SubfuncResult == nil || !*subfuncSDC.SubfuncResult {
+		output.SubfuncResult = getBoolPtr(false)
+		output.SubfuncError = subfuncSDC.SubfuncError
+		err = xerrors.New(output.SubfuncError)
 		return
 	}
 	return
@@ -191,7 +198,7 @@ func (c *DPFMAPICaller) itemCreate(
 	errFin chan error,
 	input *dpfm_api_input_reader.SDC,
 	output *dpfm_api_output_formatter.SDC,
-	outputMsg *dpfm_api_output_formatter.CreatesMessage,
+	subfuncSDC *sub_func_complementer.SDC,
 	errs *[]error,
 	log *logger.Logger,
 ) {
@@ -200,13 +207,21 @@ func (c *DPFMAPICaller) itemCreate(
 		errFin <- err
 	}()
 	defer wg.Done()
-	err = c.complementer.ComplementItem(input, output, outputMsg, log)
+	err = c.complementer.ComplementItem(input, subfuncSDC, log)
 	if err != nil {
 		mtx.Lock()
 		*errs = append(*errs, err)
 		mtx.Unlock()
 		return
 	}
+	output.SubfuncResult = getBoolPtr(true)
+	if subfuncSDC.SubfuncResult == nil || !*subfuncSDC.SubfuncResult {
+		output.SubfuncResult = getBoolPtr(false)
+		output.SubfuncError = subfuncSDC.SubfuncError
+		err = xerrors.New(output.SubfuncError)
+		return
+	}
+
 	return
 }
 
