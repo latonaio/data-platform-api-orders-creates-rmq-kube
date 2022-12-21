@@ -34,51 +34,15 @@ func NewExistenceConf(ctx context.Context, c *config.Conf, rmq *rabbitmq.Rabbitm
 
 // Confirm returns existenceMap, allExist, err
 func (c *ExistenceConf) Conf(data *dpfm_api_input_reader.SDC, ssdc *dpfm_api_output_formatter.SDC, l *logger.Logger) (allExist bool, errs []error) {
-	var res string
 	var resMsg string
-	var err error
 	existenceMap := make([]bool, 0, 5)
 	wg := sync.WaitGroup{}
 	mtx := &sync.Mutex{}
+
 	wg.Add(3)
-
-	go func() {
-		defer wg.Done()
-		res, err = c.bpExistenceConf(*data.Header.Buyer, data, &existenceMap, mtx, l)
-		if err != nil {
-			mtx.Lock()
-			errs = append(errs, err)
-			mtx.Unlock()
-		}
-		if res != "" {
-			resMsg = res
-		}
-	}()
-	go func() {
-		defer wg.Done()
-		res, err = c.bpExistenceConf(*data.Header.Seller, data, &existenceMap, mtx, l)
-		if errs != nil {
-			mtx.Lock()
-			errs = append(errs, err)
-			mtx.Unlock()
-		}
-		if res != "" {
-			resMsg = res
-		}
-	}()
-
-	go func() {
-		defer wg.Done()
-		res, err = c.plantExistenceConf(data.Header.HeaderPartner, data, &existenceMap, mtx, l)
-		if errs != nil {
-			mtx.Lock()
-			errs = append(errs, err)
-			mtx.Unlock()
-		}
-		if res != "" {
-			resMsg = res
-		}
-	}()
+	go c.bpExistenceConf(*data.Header.Buyer, data, &existenceMap, &resMsg, &errs, mtx, &wg, l)
+	go c.bpExistenceConf(*data.Header.Seller, data, &existenceMap, &resMsg, &errs, mtx, &wg, l)
+	go c.plantExistenceConf(data.Header.HeaderPartner, data, &existenceMap, &resMsg, &errs, mtx, &wg, l)
 
 	wg.Wait()
 
@@ -98,6 +62,118 @@ func (c *ExistenceConf) Conf(data *dpfm_api_input_reader.SDC, ssdc *dpfm_api_out
 	return true, nil
 }
 
+func (c *ExistenceConf) bpExistenceConf(bpID int, input *dpfm_api_input_reader.SDC, existenceMap *[]bool, exconfErrMsg *string, errs *[]error, mtx *sync.Mutex, wg *sync.WaitGroup, log *logger.Logger) {
+	defer wg.Done()
+	res, err := c.bpExistenceConfRequest(bpID, input, existenceMap, mtx, log)
+	if err != nil {
+		mtx.Lock()
+		*errs = append(*errs, err)
+		mtx.Unlock()
+	}
+	if res != "" {
+		*exconfErrMsg = res
+	}
+}
+
+func (c *ExistenceConf) plantExistenceConf(headerPartners []dpfm_api_input_reader.HeaderPartner, input *dpfm_api_input_reader.SDC, existenceMap *[]bool, exconfErrMsg *string, errs *[]error, mtx *sync.Mutex, wg *sync.WaitGroup, log *logger.Logger) {
+	defer wg.Done()
+	wg2 := sync.WaitGroup{}
+	exReqTimes := 0
+	for _, hp := range headerPartners {
+		if len(hp.HeaderPartnerPlant) == 0 {
+			*exconfErrMsg = "plantデータがありません。"
+		}
+		for _, p := range hp.HeaderPartnerPlant {
+			wg2.Add(1)
+			exReqTimes++
+			go func(plant string, bpID int) {
+				res, err := c.plantExistenceConfRequest(plant, bpID, input, existenceMap, mtx, log)
+				if err != nil {
+					mtx.Lock()
+					*errs = append(*errs, err)
+					mtx.Unlock()
+				}
+				if res != "" {
+					*exconfErrMsg = res
+				}
+				wg2.Done()
+			}(p.Plant, *hp.BusinessPartner)
+		}
+	}
+	wg2.Wait()
+	if exReqTimes == 0 {
+		*existenceMap = append(*existenceMap, false)
+	}
+}
+
+func (c *ExistenceConf) bpExistenceConfRequest(bpID int, input *dpfm_api_input_reader.SDC, existenceMap *[]bool, mtx *sync.Mutex, log *logger.Logger) (string, error) {
+	key := "BusinessPartnerGeneral"
+	exist := false
+	defer func() {
+		mtx.Lock()
+		*existenceMap = append(*existenceMap, exist)
+		mtx.Unlock()
+	}()
+
+	req, err := jsonTypeConversion[BusinessPartnerReq](input)
+	if err != nil {
+		return "", xerrors.Errorf("request create error: %w", err)
+	}
+	req.BusinessPartner.BusinessPartner = bpID
+
+	exist, err = c.exconfRequest(req, key, log)
+	if err != nil {
+		return "", err
+	}
+	if !exist {
+		return fmt.Sprintf("BusinessPartner:%v を含むデータが存在しません", bpID), nil
+	}
+
+	return "", nil
+}
+
+func (c *ExistenceConf) plantExistenceConfRequest(plant string, bpID int, input *dpfm_api_input_reader.SDC, existenceMap *[]bool, mtx *sync.Mutex, log *logger.Logger) (string, error) {
+	key := "PlantGeneral"
+	exist := false
+	defer func() {
+		mtx.Lock()
+		*existenceMap = append(*existenceMap, exist)
+		mtx.Unlock()
+	}()
+
+	req, err := jsonTypeConversion[PlantReq](input)
+	if err != nil {
+		return "", xerrors.Errorf("request create error: %w", err)
+	}
+	req.Plant.Plant = plant
+	req.Plant.BusinessPartner = bpID
+
+	exist, err = c.exconfRequest(req, key, log)
+	if err != nil {
+		return "", err
+	}
+	if !exist {
+		return fmt.Sprintf("BusinessPartner:%d, Plant:%s を含むデータが存在しません", bpID, plant), nil
+	}
+	return "", nil
+}
+
+func getBoolPtr(b bool) *bool {
+	return &b
+}
+
+func jsonTypeConversion[T any](data interface{}) (T, error) {
+	var dist T
+	b, err := json.Marshal(data)
+	if err != nil {
+		return dist, xerrors.Errorf("Marshal error: %w", err)
+	}
+	err = json.Unmarshal(b, &dist)
+	if err != nil {
+		return dist, xerrors.Errorf("Unmarshal error: %w", err)
+	}
+	return dist, nil
+}
 func confKeyExistence(res map[string]interface{}) bool {
 	if res == nil {
 		return false
@@ -110,94 +186,13 @@ func confKeyExistence(res map[string]interface{}) bool {
 
 	return false
 }
-
-func (c *ExistenceConf) bpExistenceConf(bpID int, input *dpfm_api_input_reader.SDC, existenceMap *[]bool, mtx *sync.Mutex, log *logger.Logger) (string, error) {
-	var resMsg string
-	key := "BusinessPartnerGeneral"
-	exist := false
-	defer func() {
-		mtx.Lock()
-		*existenceMap = append(*existenceMap, exist)
-		mtx.Unlock()
-
-	}()
-	b, _ := json.Marshal(input)
-	req := BusinessPartnerReq{}
-	err := json.Unmarshal(b, &req)
-	if err != nil {
-		return resMsg, xerrors.Errorf("Unmarshal error: %w", err)
-	}
-
-	req.BusinessPartner.BusinessPartner = bpID
+func (c *ExistenceConf) exconfRequest(req interface{}, key string, log *logger.Logger) (bool, error) {
 	res, err := c.rmq.SessionKeepRequest(nil, c.queueToMapper[key], req)
 	if err != nil {
-		return resMsg, xerrors.Errorf("response error: %w", err)
+		return false, xerrors.Errorf("response error: %w", err)
 	}
 	res.Success()
-	exist = confKeyExistence(res.Data())
+	exist := confKeyExistence(res.Data())
 	log.Info(res.Data())
-	if !confKeyExistence(res.Data()) {
-		resMsg = fmt.Sprintf("BusinessPartner:%d を含むデータが存在しません", int(res.Data()["BusinessPartner"].(float64)))
-	}
-
-	return resMsg, nil
-}
-
-func (c *ExistenceConf) plantExistenceConf(headerPartners []dpfm_api_input_reader.HeaderPartner, input *dpfm_api_input_reader.SDC, existenceMap *[]bool, mtx *sync.Mutex, log *logger.Logger) (string, error) {
-	var resMsg string
-	key := "PlantGeneral"
-	exist := make([]bool, 0, len(headerPartners))
-	defer func() {
-		if len(exist) == 0 {
-			mtx.Lock()
-			*existenceMap = append(*existenceMap, false)
-			mtx.Unlock()
-			return
-		}
-		mtx.Lock()
-		*existenceMap = append(*existenceMap, exist...)
-		mtx.Unlock()
-	}()
-
-	b, _ := json.Marshal(input)
-	req := PlantReq{}
-	err := json.Unmarshal(b, &req)
-	if err != nil {
-		return resMsg, xerrors.Errorf("Unmarshal error: %w", err)
-	}
-	wg := sync.WaitGroup{}
-	for _, v := range headerPartners {
-		wg.Add(1)
-		go func(req PlantReq, hp dpfm_api_input_reader.HeaderPartner) {
-			defer wg.Done()
-			req.Plant.BusinessPartner = *hp.BusinessPartner
-
-			for _, p := range hp.HeaderPartnerPlant {
-				plant := p.Plant
-				if plant == "" {
-					exist = append(exist, true)
-					continue
-				}
-				req.Plant.Plant = plant
-				res, err := c.rmq.SessionKeepRequest(nil, c.queueToMapper[key], req)
-				if err != nil {
-					log.Error(xerrors.Errorf("response error: %w", err))
-				}
-				res.Success()
-				exist = append(exist, confKeyExistence(res.Data()))
-				log.Info(res.Data())
-				if !confKeyExistence(res.Data()) {
-					resMsg = fmt.Sprintf("BusinessPartner:%d, Plant:%s を含むデータが存在しません", int(res.Data()["BusinessPartner"].(float64)), res.Data()["Plant"].(string))
-				}
-			}
-
-		}(req, v)
-	}
-	wg.Wait()
-
-	return resMsg, nil
-}
-
-func getBoolPtr(b bool) *bool {
-	return &b
+	return exist, nil
 }

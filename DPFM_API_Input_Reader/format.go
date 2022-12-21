@@ -4,10 +4,6 @@ import (
 	"data-platform-api-orders-creates-rmq-kube/DPFM_API_Caller/requests"
 )
 
-func (sdc *SDC) ConvertToBpExistenceConf() {
-
-}
-
 func (sdc *SDC) ConvertToHeader() *requests.Header {
 	data := sdc.Header
 	return &requests.Header{
@@ -21,30 +17,36 @@ func (sdc *SDC) ConvertToHeader() *requests.Header {
 		ContractType:                    data.ContractType,
 		ValidityStartDate:               data.ValidityStartDate,
 		ValidityEndDate:                 data.ValidityEndDate,
-		InvoiceScheduleStartDate:        data.InvoiceScheduleStartDate,
-		InvoiceScheduleEndDate:          data.InvoiceScheduleEndDate,
+		InvoicePeriodStartDate:          data.InvoicePeriodStartDate,
+		InvoicePeriodEndDate:            data.InvoicePeriodEndDate,
 		TotalNetAmount:                  data.TotalNetAmount,
 		TotalTaxAmount:                  data.TotalTaxAmount,
 		TotalGrossAmount:                data.TotalGrossAmount,
-		OverallDeliveryStatus:           data.OverallDeliveryStatus,
-		TotalBlockStatus:                data.TotalBlockStatus,
-		OverallOrdReltdBillgStatus:      data.OverallOrdReltdBillgStatus,
-		OverallDocReferenceStatus:       data.OverallDocReferenceStatus,
+		HeaderDeliveryStatus:            data.HeaderDeliveryStatus,
+		HeaderBlockStatus:               data.HeaderBlockStatus,
+		HeaderBillingStatus:             data.HeaderBillingStatus,
+		HeaderDocReferenceStatus:        data.HeaderDocReferenceStatus,
 		TransactionCurrency:             data.TransactionCurrency,
 		PricingDate:                     data.PricingDate,
 		PriceDetnExchangeRate:           data.PriceDetnExchangeRate,
 		RequestedDeliveryDate:           data.RequestedDeliveryDate,
 		HeaderCompleteDeliveryIsDefined: data.HeaderCompleteDeliveryIsDefined,
-		HeaderBillingBlockReason:        data.HeaderBillingBlockReason,
-		DeliveryBlockReason:             data.DeliveryBlockReason,
+		HeaderBillingBlockStatus:        data.HeaderBillingBlockStatus,
+		HeaderDeliveryBlockStatus:       data.HeaderDeliveryBlockStatus,
 		Incoterms:                       data.Incoterms,
+		BillFromParty:                   data.BillFromParty,
+		BillToParty:                     data.BillToParty,
+		BillFromCountry:                 data.BillFromCountry,
+		BillToCountry:                   data.BillToCountry,
+		Payer:                           data.Payer,
+		Payee:                           data.Payee,
 		PaymentTerms:                    data.PaymentTerms,
 		PaymentMethod:                   data.PaymentMethod,
 		ReferenceDocument:               data.ReferenceDocument,
 		ReferenceDocumentItem:           data.ReferenceDocumentItem,
 		BPAccountAssignmentGroup:        data.BPAccountAssignmentGroup,
 		AccountingExchangeRate:          data.AccountingExchangeRate,
-		BillingDocumentDate:             data.BillingDocumentDate,
+		InvoiceDocumentDate:             data.InvoiceDocumentDate,
 		IsExportImportDelivery:          data.IsExportImportDelivery,
 		HeaderText:                      data.HeaderText,
 	}

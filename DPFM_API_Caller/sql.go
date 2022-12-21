@@ -23,9 +23,9 @@ func (c *DPFMAPICaller) createSqlProcess(
 	log *logger.Logger,
 ) interface{} {
 	var headerCreates *dpfm_api_output_formatter.HeaderCreates
-	var headerPartner []dpfm_api_output_formatter.HeaderPartner
-	var headerPartnerPlant []dpfm_api_output_formatter.HeaderPartnerPlant
-	var item []dpfm_api_output_formatter.Item
+	var headerPartner *[]dpfm_api_output_formatter.HeaderPartner
+	var headerPartnerPlant *[]dpfm_api_output_formatter.HeaderPartnerPlant
+	var item *[]dpfm_api_output_formatter.Item
 	for _, fn := range accepter {
 		switch fn {
 		case "Header":
@@ -109,8 +109,8 @@ func (c *DPFMAPICaller) headerCreateSql(
 	}
 
 	// data_platform_orders_header_partner_dataの更新
-	for i := range subfuncSDC.Message.HeaderPartner {
-		headerPartnerData := subfuncSDC.Message.HeaderPartner[i]
+	for i := range *subfuncSDC.Message.HeaderPartner {
+		headerPartnerData := (*subfuncSDC.Message.HeaderPartner)[i]
 		res, err = c.rmq.SessionKeepRequest(ctx, c.conf.RMQ.QueueToSQL()[0], map[string]interface{}{"message": headerPartnerData, "function": "OrdersHeaderPartner", "runtime_session_id": sessionID})
 		if err != nil {
 			err = xerrors.Errorf("rmq error: %w", err)
@@ -126,8 +126,8 @@ func (c *DPFMAPICaller) headerCreateSql(
 	}
 
 	// data_platform_orders_header_partner_plant_dataの更新
-	for i := range subfuncSDC.Message.HeaderPartnerPlant {
-		headerPartnerPlantData := subfuncSDC.Message.HeaderPartnerPlant[i]
+	for i := range *subfuncSDC.Message.HeaderPartnerPlant {
+		headerPartnerPlantData := (*subfuncSDC.Message.HeaderPartnerPlant)[i]
 		res, err = c.rmq.SessionKeepRequest(ctx, c.conf.RMQ.QueueToSQL()[0], map[string]interface{}{"message": headerPartnerPlantData, "function": "OrdersHeaderPartnerPlant", "runtime_session_id": sessionID})
 		if err != nil {
 			err = xerrors.Errorf("rmq error: %w", err)
@@ -163,7 +163,7 @@ func (c *DPFMAPICaller) itemCreateSql(
 	}
 	sessionID := input.RuntimeSessionID
 	// data_platform_orders_item_dataの更新
-	for _, itemData := range subfuncSDC.Message.Item {
+	for _, itemData := range *subfuncSDC.Message.Item {
 		res, err := c.rmq.SessionKeepRequest(ctx, c.conf.RMQ.QueueToSQL()[0], map[string]interface{}{"message": itemData, "function": "OrdersItem", "runtime_session_id": sessionID})
 		if err != nil {
 			err = xerrors.Errorf("rmq error: %w", err)

@@ -68,7 +68,10 @@ func (c *DPFMAPICaller) AsyncOrderCreates(
 
 	// 処理待ち
 	ticker := time.NewTicker(10 * time.Second)
-	if errs = c.finWait(&mtx, exconfFin, ticker); len(errs) != 0 {
+	if err := c.finWait(&mtx, exconfFin, ticker); err != nil || len(errs) != 0 {
+		if err != nil {
+			errs = append(errs, err)
+		}
 		return subfuncSDC, errs
 	}
 	if !exconfAllExist {
@@ -76,8 +79,13 @@ func (c *DPFMAPICaller) AsyncOrderCreates(
 		return subfuncSDC, nil
 	}
 	wg.Wait()
-	if errs = c.finWait(&mtx, subFuncFin, ticker); len(errs) != 0 {
-		return subfuncSDC, errs
+	for range accepter {
+		if err := c.finWait(&mtx, subFuncFin, ticker); err != nil || len(errs) != 0 {
+			if err != nil {
+				errs = append(errs, err)
+			}
+			return subfuncSDC, errs
+		}
 	}
 
 	var response interface{}
@@ -142,18 +150,15 @@ func (c *DPFMAPICaller) finWait(
 	mtx *sync.Mutex,
 	finChan chan error,
 	ticker *time.Ticker,
-) []error {
-	errs := make([]error, 1)
+) error {
 	select {
 	case e := <-finChan:
 		if e != nil {
 			mtx.Lock()
-			errs[1] = e
-			return errs
+			return e
 		}
 	case <-ticker.C:
-		errs = append(errs, xerrors.New("time out"))
-		return errs
+		return xerrors.New("time out")
 	}
 	return nil
 }
@@ -175,11 +180,9 @@ func (c *DPFMAPICaller) headerCreate(
 	defer wg.Done()
 	err = c.complementer.ComplementHeader(input, subfuncSDC, log)
 	if err != nil {
-		log.Error(err)
-		err = nil
-		// mtx.Lock()
-		// *errs = append(*errs, err)
-		// mtx.Unlock()
+		mtx.Lock()
+		*errs = append(*errs, err)
+		mtx.Unlock()
 		return
 	}
 	output.SubfuncResult = getBoolPtr(true)

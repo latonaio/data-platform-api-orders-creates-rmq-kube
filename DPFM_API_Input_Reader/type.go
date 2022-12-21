@@ -54,19 +54,25 @@ type EC_MC struct {
 }
 
 type SDC struct {
-	ConnectionKey    string   `json:"connection_key"`
-	Result           bool     `json:"result"`
-	RedisKey         string   `json:"redis_key"`
-	Filepath         string   `json:"filepath"`
-	APIStatusCode    int      `json:"api_status_code"`
-	RuntimeSessionID string   `json:"runtime_session_id"`
-	BusinessPartner  *int     `json:"business_partner"`
-	ServiceLabel     string   `json:"service_label"`
-	APIType          string   `json:"api_type"`
-	Header           Header   `json:"Orders"`
-	APISchema        string   `json:"api_schema"`
-	Accepter         []string `json:"accepter"`
-	Deleted          bool     `json:"deleted"`
+	ConnectionKey         string                `json:"connection_key"`
+	Result                bool                  `json:"result"`
+	RedisKey              string                `json:"redis_key"`
+	Filepath              string                `json:"filepath"`
+	APIStatusCode         int                   `json:"api_status_code"`
+	RuntimeSessionID      string                `json:"runtime_session_id"`
+	BusinessPartner       *int                  `json:"business_partner"`
+	ServiceLabel          string                `json:"service_label"`
+	APIType               string                `json:"api_type"`
+	OrdersInputParameters OrdersInputParameters `json:"OrdersInputParameters"`
+	Header                Header                `json:"Orders"`
+	APISchema             string                `json:"api_schema"`
+	Accepter              []string              `json:"accepter"`
+	Deleted               bool                  `json:"deleted"`
+}
+
+type OrdersInputParameters struct {
+	ReferenceDocument     *int `json:"ReferenceDocument"`
+	ReferenceDocumentItem *int `json:"ReferenceDocumentItem"`
 }
 
 type Header struct {
@@ -80,30 +86,36 @@ type Header struct {
 	ContractType                    string          `json:"ContractType"`
 	ValidityStartDate               *string         `json:"ValidityStartDate"`
 	ValidityEndDate                 *string         `json:"ValidityEndDate"`
-	InvoiceScheduleStartDate        *string         `json:"InvoiceScheduleStartDate"`
-	InvoiceScheduleEndDate          *string         `json:"InvoiceScheduleEndDate"`
+	InvoicePeriodStartDate          *string         `json:"InvoicePeriodStartDate"`
+	InvoicePeriodEndDate            *string         `json:"InvoicePeriodEndDate"`
 	TotalNetAmount                  *float32        `json:"TotalNetAmount"`
 	TotalTaxAmount                  *float32        `json:"TotalTaxAmount"`
 	TotalGrossAmount                *float32        `json:"TotalGrossAmount"`
-	OverallDeliveryStatus           string          `json:"OverallDeliveryStatus"`
-	TotalBlockStatus                *bool           `json:"TotalBlockStatus"`
-	OverallOrdReltdBillgStatus      string          `json:"OverallOrdReltdBillgStatus"`
-	OverallDocReferenceStatus       string          `json:"OverallDocReferenceStatus"`
+	HeaderDeliveryStatus            string          `json:"HeaderDeliveryStatus"`
+	HeaderBlockStatus               *bool           `json:"HeaderBlockStatus"`
+	HeaderBillingStatus             string          `json:"HeaderBillingStatus"`
+	HeaderDocReferenceStatus        string          `json:"HeaderDocReferenceStatus"`
 	TransactionCurrency             string          `json:"TransactionCurrency"`
 	PricingDate                     *string         `json:"PricingDate"`
 	PriceDetnExchangeRate           *float32        `json:"PriceDetnExchangeRate"`
 	RequestedDeliveryDate           *string         `json:"RequestedDeliveryDate"`
 	HeaderCompleteDeliveryIsDefined *bool           `json:"HeaderCompleteDeliveryIsDefined"`
-	HeaderBillingBlockReason        *bool           `json:"HeaderBillingBlockReason"`
-	DeliveryBlockReason             *bool           `json:"DeliveryBlockReason"`
+	HeaderBillingBlockStatus        *bool           `json:"HeaderBillingBlockStatus"`
+	HeaderDeliveryBlockStatus       *bool           `json:"HeaderDeliveryBlockStatus"`
 	Incoterms                       string          `json:"Incoterms"`
+	BillFromParty                   *int            `json:"BillFromParty"`
+	BillToParty                     *int            `json:"BillToParty"`
+	BillFromCountry                 string          `json:"BillFromCountry"`
+	BillToCountry                   string          `json:"BillToCountry"`
+	Payer                           *int            `json:"Payer"`
+	Payee                           *int            `json:"Payee"`
 	PaymentTerms                    string          `json:"PaymentTerms"`
 	PaymentMethod                   string          `json:"PaymentMethod"`
 	ReferenceDocument               *int            `json:"ReferenceDocument"`
 	ReferenceDocumentItem           *int            `json:"ReferenceDocumentItem"`
 	BPAccountAssignmentGroup        string          `json:"BPAccountAssignmentGroup"`
 	AccountingExchangeRate          *float32        `json:"AccountingExchangeRate"`
-	BillingDocumentDate             *string         `json:"BillingDocumentDate"`
+	InvoiceDocumentDate             *string         `json:"InvoiceDocumentDate"`
 	IsExportImportDelivery          *bool           `json:"IsExportImportDelivery"`
 	HeaderText                      string          `json:"HeaderText"`
 	HeaderPartner                   []HeaderPartner `json:"HeaderPartner"`
@@ -113,21 +125,28 @@ type Header struct {
 }
 
 type HeaderUpdates struct {
-	OrderID                         *int     `json:"OrderID"`
 	TotalNetAmount                  *float32 `json:"TotalNetAmount"`
 	TotalTaxAmount                  *float32 `json:"TotalTaxAmount"`
 	TotalGrossAmount                *float32 `json:"TotalGrossAmount"`
-	TotalBlockStatus                *bool    `json:"TotalBlockStatus"`
+	HeaderBlockStatus               *bool    `json:"HeaderBlockStatus"`
 	TransactionCurrency             string   `json:"TransactionCurrency"`
 	PricingDate                     *string  `json:"PricingDate"`
 	PriceDetnExchangeRate           *string  `json:"PriceDetnExchangeRate"`
 	RequestedDeliveryDate           *string  `json:"RequestedDeliveryDate"`
+	HeaderBillingBlockStatus        *bool    `json:"HeaderBillingBlockStatus"`
+	HeaderDeliveryBlockStatus       *bool    `json:"HeaderDeliveryBlockStatus"`
 	HeaderCompleteDeliveryIsDefined *bool    `json:"HeaderCompleteDeliveryIsDefined"`
 	HeaderBillingBlockReason        *bool    `json:"HeaderBillingBlockReason"`
-	DeliveryBlockReason             *bool    `json:"DeliveryBlockReason"`
 	Incoterms                       string   `json:"Incoterms"`
+	BillFromParty                   *int     `json:"BillFromParty"`
+	BillToParty                     *int     `json:"BillToParty"`
+	BillFromCountry                 string   `json:"BillFromCountry"`
+	BillToCountry                   string   `json:"BillToCountry"`
+	Payer                           *int     `json:"Payer"`
+	Payee                           *int     `json:"Payee"`
 	PaymentTerms                    string   `json:"PaymentTerms"`
-	BillingDocumentDate             *string  `json:"BillingDocumentDate"`
+	PaymentMethod                   string   `json:"PaymentMethod"`
+	InvoiceDocumentDate             *string  `json:"InvoiceDocumentDate"`
 	HeaderText                      string   `json:"HeaderText"`
 }
 
@@ -237,8 +256,8 @@ type Item struct {
 	PricingDate                                   *string              `json:"PricingDate"`
 	PriceDetnExchangeRate                         *float32             `json:"PriceDetnExchangeRate"`
 	RequestedDeliveryDate                         *string              `json:"RequestedDeliveryDate"`
-	DeliverFromParty                              *int                 `json:"BusinessPartner"`
-	DeliverToParty                                *int                 `json:"BusinessPartner"`
+	DeliverFromParty                              *int                 `json:"DeliverFromParty"`
+	DeliverToParty                                *int                 `json:"DeliverToParty"`
 	StockConfirmationPartnerFunction              string               `json:"StockConfirmationPartnerFunction"`
 	StockConfirmationBusinessPartner              *int                 `json:"StockConfirmationBusinessPartner"`
 	StockConfirmationPlant                        string               `json:"StockConfirmationPlant"`
@@ -262,7 +281,7 @@ type Item struct {
 	NetAmount                                     *float32             `json:"NetAmount"`
 	TaxAmount                                     *float32             `json:"TaxAmount"`
 	GrossAmount                                   *float32             `json:"GrossAmount"`
-	BillingDocumentDate                           *string              `json:"BillingDocumentDate"`
+	InvoiceDocumentDate                           *string              `json:"InvoiceDocumentDate"`
 	ProductionPlantPartnerFunction                string               `json:"ProductionPlantPartnerFunction"`
 	ProductionPlantBusinessPartner                *int                 `json:"ProductionPlantBusinessPartner"`
 	ProductionPlant                               string               `json:"ProductionPlant"`
@@ -300,7 +319,6 @@ type Item struct {
 	ProductAccountAssignmentGroup                 string               `json:"ProductAccountAssignmentGroup"`
 	PaymentTerms                                  string               `json:"PaymentTerms"`
 	PaymentMethod                                 string               `json:"PaymentMethod"`
-	DocumentRjcnReason                            *bool                `json:"DocumentRjcnReason"`
 	ItemBillingBlockReason                        *bool                `json:"ItemBillingBlockReason"`
 	ItemDeliveryBlockStatus                       *bool                `json:"ItemDeliveryBlockStatus"`
 	Project                                       string               `json:"Project"`
@@ -328,8 +346,8 @@ type ItemUpdates struct {
 	ProductStandardID                string  `json:"ProductStandardID"`
 	ProductGroup                     string  `json:"ProductGroup"`
 	RequestedDeliveryDate            *string `json:"RequestedDeliveryDate"`
-	DeliverFromParty                 *int    `json:"BusinessPartner"`
-	DeliverToParty                   *int    `json:"BusinessPartner"`
+	DeliverFromParty                 *int    `json:"DeliverFromParty"`
+	DeliverToParty                   *int    `json:"DeliverToParty"`
 	StockConfirmationPartnerFunction string  `json:"StockConfirmationPartnerFunction"`
 	StockConfirmationBusinessPartner *int    `json:"StockConfirmationBusinessPartner"`
 	ItemBillingBlockReason           *bool   `json:"ItemBillingBlockReason"`

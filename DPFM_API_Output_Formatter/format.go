@@ -24,25 +24,31 @@ func ConvertToHeaderCreates(subfuncSDC *sub_func_complementer.SDC) *HeaderCreate
 		TotalNetAmount:                  data.TotalNetAmount,
 		TotalTaxAmount:                  data.TotalTaxAmount,
 		TotalGrossAmount:                data.TotalGrossAmount,
-		OverallDeliveryStatus:           data.OverallDeliveryStatus,
-		TotalBlockStatus:                data.TotalBlockStatus,
-		OverallOrdReltdBillgStatus:      data.OverallOrdReltdBillgStatus,
-		OverallDocReferenceStatus:       data.OverallDocReferenceStatus,
+		HeaderDeliveryStatus:            data.HeaderDeliveryStatus,
+		HeaderBlockStatus:               data.HeaderBlockStatus,
+		HeaderBillingStatus:             data.HeaderBillingStatus,
+		HeaderDocReferenceStatus:        data.HeaderDocReferenceStatus,
 		TransactionCurrency:             data.TransactionCurrency,
 		PricingDate:                     data.PricingDate,
 		PriceDetnExchangeRate:           data.PriceDetnExchangeRate,
 		RequestedDeliveryDate:           data.RequestedDeliveryDate,
 		HeaderCompleteDeliveryIsDefined: data.HeaderCompleteDeliveryIsDefined,
-		HeaderBillingBlockReason:        data.HeaderBillingBlockReason,
-		DeliveryBlockReason:             data.DeliveryBlockReason,
+		HeaderBillingBlockStatus:        data.HeaderBillingBlockStatus,
+		HeaderDeliveryBlockStatus:       data.HeaderDeliveryBlockStatus,
 		Incoterms:                       data.Incoterms,
+		BillFromParty:                   data.BillFromParty,
+		BillToParty:                     data.BillToParty,
+		BillFromCountry:                 data.BillFromCountry,
+		BillToCountry:                   data.BillToCountry,
+		Payer:                           data.Payer,
+		Payee:                           data.Payee,
 		PaymentTerms:                    data.PaymentTerms,
 		PaymentMethod:                   data.PaymentMethod,
 		ReferenceDocument:               data.ReferenceDocument,
 		ReferenceDocumentItem:           data.ReferenceDocumentItem,
 		BPAccountAssignmentGroup:        data.BPAccountAssignmentGroup,
 		AccountingExchangeRate:          data.AccountingExchangeRate,
-		BillingDocumentDate:             data.BillingDocumentDate,
+		InvoiceDocumentDate:             data.InvoiceDocumentDate,
 		IsExportImportDelivery:          data.IsExportImportDelivery,
 		HeaderText:                      data.HeaderText,
 	}
@@ -54,29 +60,35 @@ func ConvertToHeaderUpdates(headerUpdates dpfm_api_input_reader.HeaderUpdates) *
 	data := headerUpdates
 
 	return &HeaderUpdates{
-		OrderID:                         data.OrderID,
 		TotalNetAmount:                  data.TotalNetAmount,
 		TotalTaxAmount:                  data.TotalTaxAmount,
 		TotalGrossAmount:                data.TotalGrossAmount,
-		TotalBlockStatus:                data.TotalBlockStatus,
+		HeaderBlockStatus:               data.HeaderBlockStatus,
 		TransactionCurrency:             data.TransactionCurrency,
 		PricingDate:                     data.PricingDate,
 		PriceDetnExchangeRate:           data.PriceDetnExchangeRate,
 		RequestedDeliveryDate:           data.RequestedDeliveryDate,
+		HeaderBillingBlockStatus:        data.HeaderBillingBlockStatus,
+		HeaderDeliveryBlockStatus:       data.HeaderDeliveryBlockStatus,
 		HeaderCompleteDeliveryIsDefined: data.HeaderCompleteDeliveryIsDefined,
-		HeaderBillingBlockReason:        data.HeaderBillingBlockReason,
-		DeliveryBlockReason:             data.DeliveryBlockReason,
 		Incoterms:                       data.Incoterms,
+		BillFromParty:                   data.BillFromParty,
+		BillToParty:                     data.BillToParty,
+		BillFromCountry:                 data.BillFromCountry,
+		BillToCountry:                   data.BillToCountry,
+		Payer:                           data.Payer,
+		Payee:                           data.Payee,
 		PaymentTerms:                    data.PaymentTerms,
-		BillingDocumentDate:             data.BillingDocumentDate,
+		PaymentMethod:                   data.PaymentMethod,
+		InvoiceDocumentDate:             data.InvoiceDocumentDate,
 		HeaderText:                      data.HeaderText,
 	}
 }
 
-func ConvertToHeaderPartner(subfuncSDC *sub_func_complementer.SDC) []HeaderPartner {
+func ConvertToHeaderPartner(subfuncSDC *sub_func_complementer.SDC) *[]HeaderPartner {
 	var headerPartner []HeaderPartner
 
-	for _, data := range subfuncSDC.Message.HeaderPartner {
+	for _, data := range *subfuncSDC.Message.HeaderPartner {
 		headerPartner = append(headerPartner, HeaderPartner{
 			OrderID:                 data.OrderID,
 			PartnerFunction:         data.PartnerFunction,
@@ -92,13 +104,13 @@ func ConvertToHeaderPartner(subfuncSDC *sub_func_complementer.SDC) []HeaderPartn
 		})
 	}
 
-	return headerPartner
+	return &headerPartner
 }
 
-func ConvertToHeaderPartnerPlant(subfuncSDC *sub_func_complementer.SDC) []HeaderPartnerPlant {
+func ConvertToHeaderPartnerPlant(subfuncSDC *sub_func_complementer.SDC) *[]HeaderPartnerPlant {
 	var headerPartnerPlant []HeaderPartnerPlant
 
-	for _, data := range subfuncSDC.Message.HeaderPartnerPlant {
+	for _, data := range *subfuncSDC.Message.HeaderPartnerPlant {
 		headerPartnerPlant = append(headerPartnerPlant, HeaderPartnerPlant{
 			OrderID:         data.OrderID,
 			PartnerFunction: data.PartnerFunction,
@@ -107,18 +119,20 @@ func ConvertToHeaderPartnerPlant(subfuncSDC *sub_func_complementer.SDC) []Header
 		})
 	}
 
-	return headerPartnerPlant
+	return &headerPartnerPlant
 }
 
-func ConvertToItem(subfuncSDC *sub_func_complementer.SDC) []Item {
+func ConvertToItem(subfuncSDC *sub_func_complementer.SDC) *[]Item {
 	var item []Item
 
-	for _, data := range subfuncSDC.Message.Item {
+	for _, data := range *subfuncSDC.Message.Item {
 		item = append(item, Item{
 			OrderID:                          data.OrderID,
 			OrderItem:                        data.OrderItem,
 			OrderItemCategory:                data.OrderItemCategory,
 			OrderItemText:                    data.OrderItemText,
+			OrderItemTextByBuyer:             data.OrderItemTextByBuyer,
+			OrderItemTextBySeller:            data.OrderItemTextBySeller,
 			Product:                          data.Product,
 			ProductStandardID:                data.ProductStandardID,
 			ProductGroup:                     data.ProductGroup,
@@ -126,6 +140,8 @@ func ConvertToItem(subfuncSDC *sub_func_complementer.SDC) []Item {
 			PricingDate:                      data.PricingDate,
 			PriceDetnExchangeRate:            data.PriceDetnExchangeRate,
 			RequestedDeliveryDate:            data.RequestedDeliveryDate,
+			DeliverFromParty:                 data.DeliverFromParty,
+			DeliverToParty:                   data.DeliverToParty,
 			StockConfirmationPartnerFunction: data.StockConfirmationPartnerFunction,
 			StockConfirmationBusinessPartner: data.StockConfirmationBusinessPartner,
 			StockConfirmationPlant:           data.StockConfirmationPlant,
@@ -133,6 +149,7 @@ func ConvertToItem(subfuncSDC *sub_func_complementer.SDC) []Item {
 			StockConfirmationPlantBatchValidityStartDate:  data.StockConfirmationPlantBatchValidityStartDate,
 			StockConfirmationPlantBatchValidityEndDate:    data.StockConfirmationPlantBatchValidityEndDate,
 			ProductIsBatchManagedInStockConfirmationPlant: data.ProductIsBatchManagedInStockConfirmationPlant,
+			ServicesRenderingDate:                         data.ServicesRenderingDate,
 			OrderQuantityInBaseUnit:                       data.OrderQuantityInBaseUnit,
 			OrderQuantityInIssuingUnit:                    data.OrderQuantityInIssuingUnit,
 			OrderQuantityInReceivingUnit:                  data.OrderQuantityInReceivingUnit,
@@ -140,7 +157,7 @@ func ConvertToItem(subfuncSDC *sub_func_complementer.SDC) []Item {
 			OrderReceivingUnit:                            data.OrderReceivingUnit,
 			StockConfirmationPolicy:                       data.StockConfirmationPolicy,
 			StockConfirmationStatus:                       data.StockConfirmationStatus,
-			ConfdDelivQtyInOrderQtyUnit:                   data.ConfdDelivQtyInOrderQtyUnit,
+			ConfirmedOrderQuantityInBaseUnit:              data.ConfirmedOrderQuantityInBaseUnit,
 			ItemWeightUnit:                                data.ItemWeightUnit,
 			ProductGrossWeight:                            data.ProductGrossWeight,
 			ItemGrossWeight:                               data.ItemGrossWeight,
@@ -149,7 +166,7 @@ func ConvertToItem(subfuncSDC *sub_func_complementer.SDC) []Item {
 			NetAmount:                                     data.NetAmount,
 			TaxAmount:                                     data.TaxAmount,
 			GrossAmount:                                   data.GrossAmount,
-			BillingDocumentDate:                           data.BillingDocumentDate,
+			InvoiceDocumentDate:                           data.InvoiceDocumentDate,
 			ProductionPlantPartnerFunction:                data.ProductionPlantPartnerFunction,
 			ProductionPlantBusinessPartner:                data.ProductionPlantBusinessPartner,
 			ProductionPlant:                               data.ProductionPlant,
@@ -186,9 +203,13 @@ func ConvertToItem(subfuncSDC *sub_func_complementer.SDC) []Item {
 			BPAccountAssignmentGroup:                      data.BPAccountAssignmentGroup,
 			ProductAccountAssignmentGroup:                 data.ProductAccountAssignmentGroup,
 			PaymentTerms:                                  data.PaymentTerms,
+			DueCalculationBaseDate:                        data.DueCalculationBaseDate,
+			PaymentDueDate:                                data.PaymentDueDate,
+			NetPaymentDays:                                data.NetPaymentDays,
 			PaymentMethod:                                 data.PaymentMethod,
-			DocumentRjcnReason:                            data.DocumentRjcnReason,
-			ItemBillingBlockReason:                        data.ItemBillingBlockReason,
+			ItemBlockStatus:                               data.ItemBlockStatus,
+			ItemBillingBlockStatus:                        data.ItemBillingBlockStatus,
+			ItemDeliveryBlockStatus:                       data.ItemDeliveryBlockStatus,
 			Project:                                       data.Project,
 			AccountingExchangeRate:                        data.AccountingExchangeRate,
 			ReferenceDocument:                             data.ReferenceDocument,
@@ -197,12 +218,12 @@ func ConvertToItem(subfuncSDC *sub_func_complementer.SDC) []Item {
 			ItemDeliveryStatus:                            data.ItemDeliveryStatus,
 			IssuingStatus:                                 data.IssuingStatus,
 			ReceivingStatus:                               data.ReceivingStatus,
-			BillingStatus:                                 data.BillingStatus,
+			ItemBillingStatus:                             data.ItemBillingStatus,
 			TaxCode:                                       data.TaxCode,
 			TaxRate:                                       data.TaxRate,
 			CountryOfOrigin:                               data.CountryOfOrigin,
 		})
 	}
 
-	return item
+	return &item
 }
