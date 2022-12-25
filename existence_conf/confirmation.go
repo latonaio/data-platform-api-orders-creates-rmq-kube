@@ -81,7 +81,7 @@ func (c *ExistenceConf) plantExistenceConf(headerPartners []dpfm_api_input_reade
 	exReqTimes := 0
 	for _, hp := range headerPartners {
 		if len(hp.HeaderPartnerPlant) == 0 {
-			*exconfErrMsg = "plantデータがありません。"
+			*exconfErrMsg = plantNotExist()
 		}
 		for _, p := range hp.HeaderPartnerPlant {
 			wg2.Add(1)
@@ -108,6 +108,9 @@ func (c *ExistenceConf) plantExistenceConf(headerPartners []dpfm_api_input_reade
 
 func (c *ExistenceConf) bpExistenceConfRequest(bpID int, input *dpfm_api_input_reader.SDC, existenceMap *[]bool, mtx *sync.Mutex, log *logger.Logger) (string, error) {
 	key := "BusinessPartnerGeneral"
+	keys := newResult(map[string]interface{}{
+		"BusinessPartner": bpID,
+	})
 	exist := false
 	defer func() {
 		mtx.Lock()
@@ -126,7 +129,7 @@ func (c *ExistenceConf) bpExistenceConfRequest(bpID int, input *dpfm_api_input_r
 		return "", err
 	}
 	if !exist {
-		return fmt.Sprintf("BusinessPartner:%v を含むデータが存在しません", bpID), nil
+		return keys.fail(), nil
 	}
 
 	return "", nil
@@ -134,6 +137,10 @@ func (c *ExistenceConf) bpExistenceConfRequest(bpID int, input *dpfm_api_input_r
 
 func (c *ExistenceConf) plantExistenceConfRequest(plant string, bpID int, input *dpfm_api_input_reader.SDC, existenceMap *[]bool, mtx *sync.Mutex, log *logger.Logger) (string, error) {
 	key := "PlantGeneral"
+	keys := newResult(map[string]interface{}{
+		"BusinessPartner": bpID,
+		"Plant":           plant,
+	})
 	exist := false
 	defer func() {
 		mtx.Lock()
@@ -153,7 +160,7 @@ func (c *ExistenceConf) plantExistenceConfRequest(plant string, bpID int, input 
 		return "", err
 	}
 	if !exist {
-		return fmt.Sprintf("BusinessPartner:%d, Plant:%s を含むデータが存在しません", bpID, plant), nil
+		return keys.fail(), nil
 	}
 	return "", nil
 }
@@ -195,4 +202,26 @@ func (c *ExistenceConf) exconfRequest(req interface{}, key string, log *logger.L
 	exist := confKeyExistence(res.Data())
 	log.Info(res.Data())
 	return exist, nil
+}
+
+type result struct {
+	keys map[string]interface{}
+}
+
+func newResult(keys map[string]interface{}) *result {
+	return &result{
+		keys: keys,
+	}
+}
+
+func (r *result) fail() string {
+	txt := ""
+	for k, v := range r.keys {
+		txt = fmt.Sprintf("%s%s:%v, ", k, v)
+	}
+	txt = fmt.Sprintf("%s does not exist", txt)
+	return txt
+}
+func plantNotExist() string {
+	return "plant data does not exist."
 }
