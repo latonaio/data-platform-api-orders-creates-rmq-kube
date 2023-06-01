@@ -16,6 +16,7 @@ spec:
         run: data-platform-api-orders-creates-rmq-kube
         app: ORDERS
     spec:
+      nodeName: worker
       hostname: data-platform-api-orders-creates-rmq-kube
       containers:
         - name: data-platform-api-orders-creates-rmq-kube
